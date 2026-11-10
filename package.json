@@ -12,7 +12,8 @@
     "prices": "node scripts/update-prices.mjs",
     "ingest:check": "npx tsx scripts/ingest-check.ts",
     "package": "npm run package -w @tycho/desktop",
-    "make": "npm run make -w @tycho/desktop"
+    "make": "npm run make -w @tycho/desktop",
+    "icons": "sh scripts/build-icons.sh"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
