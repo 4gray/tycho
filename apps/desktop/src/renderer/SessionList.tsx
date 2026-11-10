@@ -1,9 +1,22 @@
-import { useState } from 'react';
-import type { SessionRow } from '@tycho/core';
+import { useEffect, useState } from 'react';
+import type { SessionDetail, SessionRow } from '@tycho/core';
+import { Tape } from './Tape';
 import { STAMP, harness, span, tokens, usd } from './format';
 
-function Strip({ s }: { s: SessionRow }) {
+function Strip({ s, onOpen }: { s: SessionRow; onOpen: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<SessionDetail | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    const load = () => window.tycho.session(s.id).then((d) => alive && setDetail(d));
+    void load();
+    const off = window.tycho.onChange(() => void load());
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [open, s.id, s.updatedAt]);
   const h = harness(s.harness);
   const stamp = s.costSource ? STAMP[s.costSource] : null;
   return (
@@ -20,6 +33,7 @@ function Strip({ s }: { s: SessionRow }) {
           </div>
           <div className="meta">
             {s.model ?? 'unknown model'} · {span(s.startedAt, s.updatedAt)}
+            {s.subagents > 0 && ` · ${s.subagents} subagent${s.subagents > 1 ? 's' : ''}`}
           </div>
         </div>
         <div className="proj"><div className="fig">{s.projectPath?.split('/').pop() ?? '—'}</div></div>
@@ -31,18 +45,21 @@ function Strip({ s }: { s: SessionRow }) {
           </div>
         </div>
         <div className="cost">
-          <div className="fig">{s.costSource === 'estimated' ? '~' : ''}{usd(s.costUsd)}</div>
+          <div className="fig" title={s.unpriced ? 'Some usage is from a model with no known price; this is a lower bound.' : undefined}>
+            {s.costSource === 'estimated' ? '~' : ''}
+            {s.unpriced && s.costUsd === 0 ? 'unpriced' : `${usd(s.costUsd)}${s.unpriced ? '+' : ''}`}
+          </div>
           {stamp && <span className={`stamp ${stamp.code}`} title={stamp.title}>{stamp.code}</span>}
         </div>
       </button>
       <div className={`tape${open ? ' on' : ''}`}>
-        {open && <div className="tape-foot"><span>Tool-call timeline and per-turn tokens arrive with the Claude Code adapter (M1).</span></div>}
+        {open && (detail ? <Tape d={detail} onOpen={() => onOpen(s.id)} /> : <p className="small">Loading…</p>)}
       </div>
     </>
   );
 }
 
-export function SessionList({ rows, empty }: { rows: SessionRow[]; empty: string }) {
+export function SessionList({ rows, empty, onOpen }: { rows: SessionRow[]; empty: string; onOpen: (id: string) => void }) {
   if (rows.length === 0) return <div className="empty">{empty}</div>;
-  return <div className="rack">{rows.map((s) => <Strip key={s.id} s={s} />)}</div>;
+  return <div className="rack">{rows.map((s) => <Strip key={s.id} s={s} onOpen={onOpen} />)}</div>;
 }

@@ -2,12 +2,19 @@ import { useState } from 'react';
 import { useTycho } from './useQuery';
 import { HARNESS, usd } from './format';
 import { Later, Overview, Sessions, Sources } from './views';
+import { Transcript } from './Transcript';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const VIEWS = ['Overview', 'Sessions', 'Tools', 'Search', 'Sources'] as const;
 type View = (typeof VIEWS)[number];
 
 export function App() {
   const [view, setView] = useState<View>('Overview');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const go = (v: View) => {
+    setOpenId(null);
+    setView(v);
+  };
   const { data: ov } = useTycho(() => window.tycho.overview());
   const { data: sources = [] } = useTycho(() => window.tycho.sources());
   const issues = sources.filter((s) => s.health !== 'ok').length;
@@ -27,7 +34,7 @@ export function App() {
 
       <nav aria-label="Views">
         {VIEWS.map((v) => (
-          <button key={v} aria-current={view === v} onClick={() => setView(v)}>
+          <button key={v} aria-current={view === v && !openId} onClick={() => go(v)}>
             {v}
             {v === 'Sessions' && ov ? <small>{ov.sessionCount.toLocaleString()}</small> : null}
             {v === 'Sources' && issues > 0 ? <small className="err">{issues} issue{issues > 1 ? 's' : ''}</small> : null}
@@ -44,11 +51,14 @@ export function App() {
 
       <main>
         <section className="view on">
-          {view === 'Overview' && <Overview />}
-          {view === 'Sessions' && <Sessions />}
-          {view === 'Sources' && <Sources />}
-          {view === 'Tools' && <Later title="Tools" what="What agents reached for, and how often it failed." milestone="M3" />}
-          {view === 'Search' && <Later title="Search" what="Full-text across every harness." milestone="M3" />}
+          <ErrorBoundary resetKey={`${view}:${openId}`}>
+          {openId && <Transcript id={openId} onBack={() => setOpenId(null)} />}
+          {!openId && view === 'Overview' && <Overview onOpen={setOpenId} />}
+          {!openId && view === 'Sessions' && <Sessions onOpen={setOpenId} />}
+          {!openId && view === 'Sources' && <Sources />}
+          {!openId && view === 'Tools' && <Later title="Tools" what="What agents reached for, and how often it failed." milestone="M3" />}
+          {!openId && view === 'Search' && <Later title="Search" what="Full-text across every harness." milestone="M3" />}
+          </ErrorBoundary>
         </section>
       </main>
     </div>

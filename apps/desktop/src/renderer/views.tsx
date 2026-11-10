@@ -31,7 +31,7 @@ function DailyChart({ daily }: { daily: OverviewData['daily'] }) {
   );
 }
 
-export function Overview() {
+export function Overview({ onOpen }: { onOpen: (id: string) => void }) {
   const { data: ov } = useTycho(() => window.tycho.overview());
   const { data: rows = [] } = useTycho(() => window.tycho.sessions({ limit: 50 }));
   const startOfDay = new Date();
@@ -43,11 +43,12 @@ export function Overview() {
     <div className="board">
       <div>
         <h2>Running</h2>
-        <SessionList rows={running} empty="No agent is running right now." />
+        <SessionList rows={running} onOpen={onOpen} empty="No agent is running right now." />
         <h2>Earlier today</h2>
         <SessionList
           rows={today}
-          empty={ov?.sessionCount ? 'Nothing else ran today.' : 'No sessions yet. Tycho starts reading harness history once the first adapter ships (M1).'}
+          onOpen={onOpen}
+          empty={ov?.sessionCount ? 'Nothing else ran today.' : 'No sessions yet. Tycho is reading your harness history; this fills in as it goes.'}
         />
       </div>
       <div>
@@ -59,7 +60,7 @@ export function Overview() {
             {ov.byModel.map((m) => (
               <div key={`${m.model}-${m.harness}`}>
                 <span>{m.model}</span>
-                <span>{usd(m.costUsd)}</span>
+                <span title={m.unpriced ? 'No price known for this model' : undefined}>{m.unpriced && m.costUsd === 0 ? 'unpriced' : usd(m.costUsd)}</span>
                 <div className="m"><i style={{ width: `${(m.costUsd / maxModel) * 100}%`, background: harness(m.harness).color }} /></div>
               </div>
             ))}
@@ -77,7 +78,7 @@ export function Overview() {
   );
 }
 
-export function Sessions() {
+export function Sessions({ onOpen }: { onOpen: (id: string) => void }) {
   const [h, setH] = useState<string | undefined>();
   const { data: rows = [] } = useTycho(() => window.tycho.sessions({ harness: h }), [h]);
   return (
@@ -90,7 +91,7 @@ export function Sessions() {
           <button key={k} aria-pressed={h === k} onClick={() => setH(k)}>{v.label}</button>
         ))}
       </div>
-      <SessionList rows={rows} empty="No sessions match." />
+      <SessionList rows={rows} onOpen={onOpen} empty="No sessions match." />
     </>
   );
 }
@@ -102,7 +103,7 @@ export function Sources() {
       <h1>Sources</h1>
       <p className="sub">Tycho only reads these. Nothing is installed in any harness.</p>
       {rows.length === 0 ? (
-        <div className="empty"><b>No sources discovered yet</b>Harness discovery arrives with the first adapter.</div>
+        <div className="empty"><b>No sources discovered yet</b>Tycho looks for Claude Code history in ~/.claude/projects (or $CLAUDE_CONFIG_DIR).</div>
       ) : (
         <table>
           <thead><tr><th>Harness</th><th>Path</th><th>Health</th><th>Last ingest</th><th className="n">Records</th></tr></thead>
