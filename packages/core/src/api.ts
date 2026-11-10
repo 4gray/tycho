@@ -15,6 +15,9 @@ export interface SessionRow {
   costUsd: number;
   costSource: CostSource | null;
   live: boolean;
+  subagents: number;
+  /** True when some usage has no known price, so costUsd is a lower bound. */
+  unpriced: boolean;
 }
 
 export interface OverviewData {
@@ -24,8 +27,17 @@ export interface OverviewData {
   liveCount: number;
   sessionCount: number;
   daily: { day: string; harness: string; costUsd: number }[];
-  byModel: { model: string; harness: string; costUsd: number }[];
+  byModel: { model: string; harness: string; costUsd: number; unpriced: boolean }[];
   cacheReadShare: number | null;
+}
+
+export interface SessionDetail {
+  session: SessionRow;
+  toolCalls: { id: string; name: string; status: string; startedAt: string | null; endedAt: string | null; sessionId: string }[];
+  turns: { timestamp: string; model: string; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; costUsd: number | null }[];
+  messages: { id: string; role: string; timestamp: string; model: string | null; text: string | null; sessionId: string }[];
+  /** Messages beyond this cap were not returned. */
+  truncated: boolean;
 }
 
 export interface SourceRow {
@@ -41,6 +53,7 @@ export interface SourceRow {
 export interface TychoApi {
   overview(): Promise<OverviewData>;
   sessions(q: { harness?: string; limit?: number; offset?: number }): Promise<SessionRow[]>;
+  session(id: string): Promise<SessionDetail | null>;
   sources(): Promise<SourceRow[]>;
   onChange(cb: (topic: 'usage' | 'sessions' | 'sources') => void): () => void;
 }
@@ -48,6 +61,7 @@ export interface TychoApi {
 export const IPC = {
   overview: 'tycho:overview',
   sessions: 'tycho:sessions',
+  session: 'tycho:session',
   sources: 'tycho:sources',
   change: 'tycho:change',
 } as const;
