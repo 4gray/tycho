@@ -30,11 +30,13 @@ export class Writer {
         VALUES (@id, @sessionId, @role, @timestamp, @model, @text, @isSidechain, @raw)
         ON CONFLICT(id) DO UPDATE SET text = excluded.text, model = COALESCE(excluded.model, messages.model)`),
       toolCall: db.prepare(`
-        INSERT INTO tool_calls (id, session_id, message_id, name, native_name, input, status, started_at)
-        VALUES (@id, @sessionId, @messageId, @name, @nativeName, @input, @status, @startedAt)
+        INSERT INTO tool_calls (id, session_id, message_id, name, native_name, input, output, output_sha256, status, started_at, ended_at)
+        VALUES (@id, @sessionId, @messageId, @name, @nativeName, @input, @output, @sha, @status, @startedAt, @endedAt)
         ON CONFLICT(id) DO UPDATE SET name = excluded.name, native_name = excluded.native_name, message_id = excluded.message_id,
           input = excluded.input, started_at = excluded.started_at,
-          status = CASE WHEN tool_calls.status IN ('ok','error') THEN tool_calls.status ELSE excluded.status END`),
+          output = COALESCE(excluded.output, tool_calls.output), output_sha256 = COALESCE(excluded.output_sha256, tool_calls.output_sha256),
+          ended_at = COALESCE(excluded.ended_at, tool_calls.ended_at),
+          status = CASE WHEN excluded.status IN ('ok','error') OR tool_calls.status NOT IN ('ok','error') THEN excluded.status ELSE tool_calls.status END`),
       toolResult: db.prepare(`
         INSERT INTO tool_calls (id, session_id, message_id, name, native_name, output, output_sha256, status, ended_at)
         VALUES (@id, @sessionId, '', 'unknown', 'unknown', @output, @sha, @status, @endedAt)
@@ -45,7 +47,14 @@ export class Writer {
           cache_read_tokens, cache_write_tokens, cache_write_1h_tokens, reasoning_tokens, cost_usd, cost_source)
         VALUES (@id, @sessionId, @messageId, @timestamp, @provider, @model, @inputTokens, @outputTokens,
           @cacheReadTokens, @cacheWriteTokens, @cacheWrite1hTokens, @reasoningTokens, @costUsd, @costSource)
-        ON CONFLICT(id) DO NOTHING`),
+        ON CONFLICT(id) DO UPDATE SET
+          -- Harnesses like OpenCode rewrite a message as it streams; the latest numbers win.
+          timestamp = excluded.timestamp, model = excluded.model, input_tokens = excluded.input_tokens,
+          output_tokens = excluded.output_tokens, cache_read_tokens = excluded.cache_read_tokens,
+          cache_write_tokens = excluded.cache_write_tokens, cache_write_1h_tokens = excluded.cache_write_1h_tokens,
+          reasoning_tokens = excluded.reasoning_tokens, cost_usd = excluded.cost_usd, cost_source = excluded.cost_source
+        WHERE excluded.input_tokens + excluded.output_tokens + excluded.cache_read_tokens + excluded.cache_write_tokens
+           >= usage_events.input_tokens + usage_events.output_tokens + usage_events.cache_read_tokens + usage_events.cache_write_tokens`),
     };
   }
 
@@ -67,7 +76,11 @@ export class Writer {
           });
           break;
         case 'tool_call':
-          this.s.toolCall.run({ ...r, input: r.input ?? null, startedAt: r.startedAt ?? null });
+          this.s.toolCall.run({
+            id: r.id, sessionId: r.sessionId, messageId: r.messageId, name: r.name, nativeName: r.nativeName,
+            input: r.input ?? null, output: r.output ?? null, status: r.status, startedAt: r.startedAt ?? null, endedAt: r.endedAt ?? null,
+            sha: r.output ? createHash('sha256').update(r.output).digest('hex') : null,
+          });
           break;
         case 'tool_result':
           this.s.toolResult.run({
