@@ -1,3 +1,5 @@
+// Never edit a shipped migration; add a new file.
+export default /* sql */ `
 CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   harness TEXT NOT NULL,
@@ -98,3 +100,4 @@ CREATE TABLE prices (
   cache_read_per_token REAL,
   cache_write_per_token REAL
 );
+`;
