@@ -6,7 +6,7 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { cpSync } from 'node:fs';
+import { cpSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -31,14 +31,25 @@ const config: ForgeConfig = {
     extraResource: ['assets'],
   },
   hooks: {
-    packageAfterCopy: async (_config, buildPath) => {
+    packageAfterCopy: async (_config, buildPath, _electronVersion, platform, arch) => {
+      // Only this build's binaries: other platforms' .node files bloat the package and break
+      // tools that inspect binaries (rpmbuild's strip fails on ARM files in an x64 build).
+      const keep = new Set(platform === 'linux' ? [`linux-${arch}.node`, `linuxmusl-${arch}.node`] : [`${platform}-${arch}.node`]);
       for (const mod of NATIVE) {
         const from = path.dirname(require.resolve(`${mod}/package.json`));
         cpSync(from, path.join(buildPath, 'node_modules', mod), {
           recursive: true,
-          // Sources and build intermediates are not needed at runtime.
-          filter: (src) => !/[\\/](src|deps|docs|build[\\/](?!Release[\\/]better_sqlite3\.node))/.test(path.relative(from, src) ? `/${path.relative(from, src)}` : ''),
+          filter: (src) => {
+            const rel = path.relative(from, src).split(path.sep);
+            // Sources, docs and locally compiled output (built for the host, not the target) stay out.
+            if (['src', 'deps', 'docs', 'build'].includes(rel[0]!)) return false;
+            if (rel[0] === 'prebuilds' && rel.length === 2) return keep.has(rel[1]!);
+            return true;
+          },
         });
+        if (!existsSync(path.join(buildPath, 'node_modules', mod, 'prebuilds', [...keep][0]!))) {
+          throw new Error(`${mod} has no prebuilt binary for ${platform}-${arch}`);
+        }
       }
     },
   },
