@@ -31,7 +31,9 @@ jobs:
           - { name: macOS arm64, os: macos-latest, arch: arm64 }
           - { name: macOS x64, os: macos-latest, arch: x64 }
           - { name: Windows x64, os: windows-latest, arch: x64 }
-          - { name: Linux x64, os: ubuntu-latest, arch: x64 }
+          # ubuntu-22.04 on purpose: its rpm 4.17 works with electron-installer-redhat's spec file.
+          # rpm 4.20+ (ubuntu-latest) changed the build directory layout and the .rpm build fails.
+          - { name: Linux x64, os: ubuntu-22.04, arch: x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
