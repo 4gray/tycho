@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import type BetterSqlite3 from 'better-sqlite3';
-import { computeCost, type NormalizedRecord } from '@tycho/core';
+import { computeCost, redact, type NormalizedRecord } from '@tycho/core';
 
 export interface WriteStats {
   records: number;
@@ -14,7 +14,15 @@ export interface WriteStats {
  */
 export class Writer {
   private s;
-  constructor(private db: BetterSqlite3.Database, private aliases: Record<string, string> = {}) {
+  private clean: (s: string | undefined) => string | null;
+
+  constructor(
+    private db: BetterSqlite3.Database,
+    private aliases: Record<string, string> = {},
+    opts: { redactSecrets?: boolean } = {},
+  ) {
+    const on = opts.redactSecrets ?? true;
+    this.clean = (s) => (s === undefined ? null : on ? redact(s) : s);
     this.s = {
       session: db.prepare(`
         INSERT INTO sessions (id, harness, native_id, project_path, title, title_rank, started_at, updated_at, parent_session_id, source_ref)
@@ -65,26 +73,26 @@ export class Writer {
         case 'session':
           this.s.session.run({
             id: r.id, harness: r.harness, nativeId: r.nativeId, projectPath: r.projectPath ?? null,
-            title: r.title?.text ?? null, titleRank: r.title?.rank ?? 0, ts: r.timestamp,
+            title: r.title ? this.clean(r.title.text) : null, titleRank: r.title?.rank ?? 0, ts: r.timestamp,
             parentSessionId: r.parentSessionId ?? null, sourceRef: r.sourceRef,
           });
           break;
         case 'message':
           this.s.message.run({
             id: r.id, sessionId: r.sessionId, role: r.role, timestamp: r.timestamp, model: r.model ?? null,
-            text: r.text ?? null, isSidechain: r.isSidechain ? 1 : 0, raw: r.raw ? gzipSync(r.raw) : null,
+            text: this.clean(r.text), isSidechain: r.isSidechain ? 1 : 0, raw: r.raw ? gzipSync(r.raw) : null,
           });
           break;
         case 'tool_call':
           this.s.toolCall.run({
             id: r.id, sessionId: r.sessionId, messageId: r.messageId, name: r.name, nativeName: r.nativeName,
-            input: r.input ?? null, output: r.output ?? null, status: r.status, startedAt: r.startedAt ?? null, endedAt: r.endedAt ?? null,
+            input: this.clean(r.input), output: this.clean(r.output), status: r.status, startedAt: r.startedAt ?? null, endedAt: r.endedAt ?? null,
             sha: r.output ? createHash('sha256').update(r.output).digest('hex') : null,
           });
           break;
         case 'tool_result':
           this.s.toolResult.run({
-            id: r.id, sessionId: r.sessionId, output: r.output ?? null, status: r.status, endedAt: r.endedAt,
+            id: r.id, sessionId: r.sessionId, output: this.clean(r.output), status: r.status, endedAt: r.endedAt,
             sha: r.output ? createHash('sha256').update(r.output).digest('hex') : null,
           });
           break;
