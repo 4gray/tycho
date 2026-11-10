@@ -23,7 +23,6 @@ Tycho is a desktop app that reads the session history your coding agents already
 - [Using Tycho](#using-tycho)
 - [How cost is calculated](#how-cost-is-calculated)
 - [Privacy and security](#privacy-and-security)
-- [Development](#development)
 - [Architecture](#architecture)
 - [Roadmap](#roadmap)
 - [License](#license)
@@ -191,39 +190,6 @@ Every cost carries a stamp showing where it came from:
 - **Secrets are redacted before storage and search indexing.** Known key formats (Anthropic, OpenAI, GitHub, AWS, Slack, Google, Stripe), JWTs, `Bearer` tokens, `KEY=value` / `password: …` assignments, passwords in connection URLs, and private keys are masked, e.g. `AKIA…[redacted]`. Redaction is pattern-based, so treat the database as sensitive anyway.
 - **Harness data is never modified.** SQLite sources open read-only, falling back to a temporary snapshot copy if the file is locked. A test checks that a harness database's `data_version` is unchanged after ingestion.
 - **The UI is sandboxed.** The window runs with `contextIsolation`, `sandbox` and no Node integration, under a strict Content-Security-Policy. It can only call a small typed API, and every request is validated in the main process.
-
-## Development
-
-```bash
-npm start            # run the app with hot reload
-npm test             # unit and integration tests (vitest)
-npm run typecheck    # strict TypeScript across all packages
-npm run ingest:check # read this machine's real history into a scratch DB and print daily totals
-npm run prices       # refresh the bundled LiteLLM price snapshot
-npm run package      # build a runnable app folder for this OS
-npm run make         # build installers for this OS
-```
-
-Tests use synthetic fixtures shaped like each harness's real files. Never commit real transcripts: they contain secrets and private code.
-
-### Adding a harness
-
-Each harness is an **adapter**: a declarative spec plus one transform function. The engine itself knows nothing harness-specific.
-
-```ts
-export const myHarness: AdapterSpec = {
-  harness: 'my-harness',
-  displayName: 'My Harness',
-  discover: { roots: { default: ['~/.my-harness/sessions'] }, match: (rel) => rel.endsWith('.jsonl') },
-  reader: 'jsonl',                 // or 'json-tree' | 'sqlite-table'
-  watch: { mode: 'append', debounceMs: 250 },
-  transform: (raw, ctx) => [/* Session | Message | ToolCall | UsageEvent records */],
-};
-```
-
-1. Inspect real files on your machine and save **anonymized** samples as fixtures.
-2. Write the tests first (see `packages/ingest/src/*.test.ts`).
-3. Add the spec and transform under `packages/adapters/src/<harness>/` and register it in `packages/adapters/src/index.ts`.
 
 ## Architecture
 
