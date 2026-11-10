@@ -82,3 +82,10 @@ Routes are a simple state machine, no router needed: Rack (overview), Sessions, 
 ## Still open
 - Which harness after Cursor (Codex CLI is the likely cheapest; it writes JSONL).
 - DESIGN.md is written from the real React build at the end of M1, not from the prototype.
+
+## Releasing
+- **CI** (`.github/workflows/ci.yml`): on pushes to `master` and on PRs, runs typecheck, tests and `npm run package` on macOS, Windows and Linux, and checks the packaged app ships the SQLite driver.
+- **Release** (`.github/workflows/release.yml`): bump `apps/desktop/package.json` `version`, commit, then tag and push, e.g. `git tag v0.1.1 && git push origin v0.1.1`.
+  - The build fails if the tag doesn't match the version.
+  - It builds macOS arm64 and x64 zips, the Windows Squirrel installer and the Linux `.deb`/`.rpm`, writes `SHA256SUMS.txt`, and creates a **draft** GitHub Release. `v0.x` and `-suffix` tags are marked pre-release. Review the draft, then publish it by hand.
+- Builds are unsigned. Signing and notarization are the next step (Apple Developer ID, a Windows code-signing certificate).
