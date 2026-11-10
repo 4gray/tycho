@@ -1,0 +1,1 @@
+{"id":"prt_a1","sessionID":"ses_old","messageID":"msg_old_a","type":"tool","callID":"call_1","tool":"bash","state":{"status":"completed","input":{"command":"go build"},"output":"ok","title":"go build","metadata":{},"time":{"start":1730000002000,"end":1730000004000}}}
