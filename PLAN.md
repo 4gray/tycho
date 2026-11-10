@@ -43,7 +43,7 @@ Adapter health: each source carries `ok | degraded | failing`, with last error a
 | Milestone | Harness | Reader | Notes |
 |---|---|---|---|
 | M1 | claude-code | jsonl, append | sidechains → `parentSessionId`; skip summary/compaction lines as user messages |
-| M2 | opencode | json-tree, or sqlite if detected | `cost` → `reported`; tool parts → ToolCall |
+| M2 | opencode | sqlite-table (v2 + v1 tables) and json-tree (oldest `storage/`) | built from OpenCode's source (not installed on the dev machine); `cost` > 0 → `reported`, `cost` = 0 → computed API-equivalent; v1/v2 copies share ids and collapse |
 | M4 | cursor | sqlite-kv, mtime poll ≥5s | `composerData:*` and `bubbleId:*`; estimated cost; fail soft |
 
 Per adapter: inspect real files first, copy anonymized samples into `packages/adapters/<h>/fixtures/`, write the vitest expectations, then write `spec.ts` (+ `transform.ts`).
