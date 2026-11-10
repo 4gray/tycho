@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTycho } from './useQuery';
 import { HARNESS, usd } from './format';
-import { Later, Overview, Sessions, Sources } from './views';
+import { Overview, Sessions, Sources } from './views';
 import { Transcript } from './Transcript';
 import { ErrorBoundary } from './ErrorBoundary';
+import { Tools } from './Tools';
+import { Search } from './Search';
 
 const VIEWS = ['Overview', 'Sessions', 'Tools', 'Search', 'Sources'] as const;
 type View = (typeof VIEWS)[number];
@@ -11,6 +13,7 @@ type View = (typeof VIEWS)[number];
 export function App() {
   const [view, setView] = useState<View>('Overview');
   const [openId, setOpenId] = useState<string | null>(null);
+  useEffect(() => window.tycho.onOpenSession(setOpenId), []);
   const go = (v: View) => {
     setOpenId(null);
     setView(v);
@@ -56,8 +59,8 @@ export function App() {
           {!openId && view === 'Overview' && <Overview onOpen={setOpenId} />}
           {!openId && view === 'Sessions' && <Sessions onOpen={setOpenId} />}
           {!openId && view === 'Sources' && <Sources />}
-          {!openId && view === 'Tools' && <Later title="Tools" what="What agents reached for, and how often it failed." milestone="M3" />}
-          {!openId && view === 'Search' && <Later title="Search" what="Full-text across every harness." milestone="M3" />}
+          {!openId && view === 'Tools' && <Tools />}
+          {!openId && view === 'Search' && <Search onOpen={setOpenId} />}
           </ErrorBoundary>
         </section>
       </main>

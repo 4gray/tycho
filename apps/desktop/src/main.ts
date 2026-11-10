@@ -47,7 +47,22 @@ app.whenReady().then(() => {
   // Main migrates first, then only reads; the ingest worker is the single writer.
   const db = openDb(dbPath);
   registerIpc(db);
-  const refreshTray = createTray(db, () => win ?? createWindow());
+  const show = () => {
+    const w = win ?? createWindow();
+    if (w.isMinimized()) w.restore();
+    w.show();
+    w.focus();
+    return w;
+  };
+  const refreshTray = createTray(db, {
+    open: () => void show(),
+    openSession: (id) => {
+      const w = show();
+      const send = () => w.webContents.send(IPC.openSession, id);
+      if (w.webContents.isLoading()) w.webContents.once('did-finish-load', send);
+      else send();
+    },
+  });
   createWindow();
 
   // Change events are coalesced so the renderer refreshes at most ~4 times a second.
