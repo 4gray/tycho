@@ -16,9 +16,9 @@ Source of truth for scope: [HANDOVER.md](HANDOVER.md). Product facts: [PRODUCT.m
 - Empty Rack view from the prototype ported to React components (`Strip`, `Tape`, `Readout`, `Rack`).
 
 ## Ingestion engine (M1 core)
-Process layout:
-- **Main**: owns the DB write connection, source registry, chokidar watchers, the tray, and an event bus that throttles renderer pushes to about 5 Hz.
-- **utilityProcess `ingest-worker`**: backfill and heavy parsing. Receives `{sourceRef, fromOffset}` jobs, returns batches of normalized records over `MessagePort`. Main writes them in one transaction per batch (about 500 records). Keeping a single writer avoids SQLITE_BUSY.
+Process layout (as built in M1):
+- **Main**: migrates the DB on startup, then only reads. Serves IPC queries, owns the tray, and forwards change events to the renderer at most ~4 times a second.
+- **utilityProcess `ingest-worker`**: the single writer. Runs discovery, backfill and the chokidar watchers, and writes batches in one transaction per chunk together with the file offset. It reports progress and changes to main over `parentPort`. Having only one writer avoids SQLITE_BUSY with no extra coordination.
 
 Pipeline per source:
 1. `discover(spec)` expands per-OS roots and globs, honoring `CLAUDE_CONFIG_DIR`. Re-runs every 60s.
@@ -34,10 +34,10 @@ Pipeline per source:
 Adapter health: each source carries `ok | degraded | failing`, with last error and skip count. A throwing adapter never stops the others.
 
 ## Pricing (M1)
-- Bundle LiteLLM's `model_prices_and_context_window.json` at build time, loaded into the `prices` table.
+- Bundle a trimmed LiteLLM snapshot (`packages/core/src/pricing/litellm-snapshot.json`; refresh with `npm run prices`).
 - `normalizeModel()` strips date and suffix variants and applies user aliases from settings.
-- Cost is computed at query time from tokens × price, so price changes apply retroactively. `reported` cost (OpenCode) is stored and wins. Cursor gets `estimated`.
-- Acceptance test: Claude Code totals match `npx ccusage daily --json` for the same date range (vitest integration test against a fixture dir plus a manual check on the real machine).
+- Cost is computed at write time and stored. 1-hour cache writes use LiteLLM's `cache_creation_input_token_cost_above_1hr`, and the 200k tier is applied. A price refresh will need a re-cost pass (planned with the refresh button). `reported` cost (OpenCode) is stored and wins. Cursor gets `estimated`.
+- Verified on 2026-11-10: every completed day matches `ccusage daily` to the cent. Acceptance test: Claude Code totals match `npx ccusage daily --json` for the same date range (vitest integration test against a fixture dir plus a manual check on the real machine).
 
 ## Adapters
 | Milestone | Harness | Reader | Notes |
