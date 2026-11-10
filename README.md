@@ -1,8 +1,15 @@
-<p align="center"><img src="design/logo/tycho-icon-1024.png" width="128" height="128" alt="Tycho icon: a brass mural quadrant sighting a star"></p>
+<p align="center">
+  <img src="design/logo/tycho-icon-1024.png" width="112" height="112" alt="">
+</p>
 
-# Tycho
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/logo/tycho-wordmark-dark.svg">
+    <img src="design/logo/tycho-wordmark-light.svg" height="64" alt="Tycho">
+  </picture>
+</h1>
 
-**One local view of every AI coding agent on your machine.**
+<p align="center"><b>One local view of every AI coding agent on your machine.</b></p>
 
 Tycho is a desktop app that reads the session history your coding agents already write to disk, including Claude Code, OpenCode and Cursor. It shows every chat, every tool call, and what the tokens would have cost, in one searchable place. It backfills your existing history on first launch and then updates live while agents run.
 
@@ -25,7 +32,6 @@ Tycho is a desktop app that reads the session history your coding agents already
 - [Using Tycho](#using-tycho)
 - [How cost is calculated](#how-cost-is-calculated)
 - [Privacy and security](#privacy-and-security)
-- [Architecture](#architecture)
 - [Roadmap](#roadmap)
 - [License](#license)
 
@@ -192,23 +198,6 @@ Every cost carries a stamp showing where it came from:
 - **Secrets are redacted before storage and search indexing.** Known key formats (Anthropic, OpenAI, GitHub, AWS, Slack, Google, Stripe), JWTs, `Bearer` tokens, `KEY=value` / `password: …` assignments, passwords in connection URLs, and private keys are masked, e.g. `AKIA…[redacted]`. Redaction is pattern-based, so treat the database as sensitive anyway.
 - **Harness data is never modified.** SQLite sources open read-only, falling back to a temporary snapshot copy if the file is locked. A test checks that a harness database's `data_version` is unchanged after ingestion.
 - **The UI is sandboxed.** The window runs with `contextIsolation`, `sandbox` and no Node integration, under a strict Content-Security-Policy. It can only call a small typed API, and every request is validated in the main process.
-
-## Architecture
-
-```
-tycho/
-  apps/desktop/        Electron main, ingest worker, preload, React renderer
-  packages/core/       normalized model, zod schemas, typed IPC contract, pricing, redaction
-  packages/adapters/   one folder per harness: spec + transform + fixtures
-  packages/ingest/     discovery, readers (JSONL tail, JSON tree, read-only SQLite), writer, watchers
-  packages/db/         SQLite schema, migrations, queries (FTS5 for search)
-```
-
-- **Ingest worker** (an Electron `utilityProcess`): the only process that writes to the database. It discovers sources, backfills history in small batches that yield to the event loop, watches files with chokidar, and writes idempotently. Each file's read position is saved in the same transaction as its data, so restarts resume exactly where they stopped and re-reading never double-counts.
-- **Main process**: migrates the database, answers the UI's queries read-only, owns the tray, and forwards change events at most about four times a second.
-- **Renderer**: React, talking to main only through `window.tycho`.
-
-See [PLAN.md](PLAN.md) for design decisions and measured performance, and [HANDOVER.md](HANDOVER.md) for the original specification.
 
 ## Roadmap
 
