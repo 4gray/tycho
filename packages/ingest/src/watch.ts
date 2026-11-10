@@ -20,8 +20,9 @@ export function watchSources(ing: Ingestor, onIngested: (file: string, records: 
       file,
       setTimeout(() => {
         timers.delete(file);
-        const r = ing.ingestFile({ file, root });
-        if (r.records > 0) onIngested(file, r.records);
+        void ing.ingestFileAsync({ file, root }).then((r) => {
+          if (r.records > 0) onIngested(file, r.records);
+        });
       }, ing.spec.watch.debounceMs),
     );
   };

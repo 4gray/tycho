@@ -121,3 +121,29 @@ describe('cursor session model', () => {
     expect(queries.sessions(db, {}, new Date(0)).find((r) => r.id === 'cursor:c-new')?.model).toBe('claude-4.5-sonnet');
   });
 });
+
+describe('async ingestion', () => {
+  it('yields between batches and gives the same result as the sync path', async () => {
+    const { dir, db } = setup();
+    const ing = new Ingestor(db, at(dir), undefined, { sqliteBatch: 2 });
+    let turns = 0;
+    const tick = () => {
+      turns++;
+      if (!done) setImmediate(tick);
+    };
+    let done = false;
+    setImmediate(tick);
+    await ing.backfillAsync();
+    done = true;
+    expect(turns).toBeGreaterThan(3);
+    expect(db.prepare(`SELECT COUNT(*) FROM messages WHERE session_id LIKE 'cursor:%'`).pluck().get()).toBe(5);
+  });
+
+  it('coalesces concurrent requests for the same source', async () => {
+    const { dir, db, ing } = setup();
+    const src = { file: path.join(dir, 'globalStorage', 'state.vscdb'), root: dir };
+    const [a, b] = await Promise.all([ing.ingestFileAsync(src), ing.ingestFileAsync(src)]);
+    expect(a).toBe(b);
+    expect(db.prepare(`SELECT COUNT(*) FROM tool_calls`).pluck().get()).toBe(2);
+  });
+});

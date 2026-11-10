@@ -7,7 +7,7 @@ import { readJsonl } from './jsonl';
 import { openReadOnly, tableColumns } from './sqlite';
 import { Writer } from './writer';
 
-const SQLITE_BATCH = 2000;
+const SQLITE_BATCH = 500;
 
 export interface IngestProgress {
   harness: string;
@@ -32,7 +32,12 @@ export class Ingestor {
   private putSource;
   private failSource;
 
-  constructor(private db: BetterSqlite3.Database, readonly spec: AdapterSpec, aliases?: Record<string, string>) {
+  constructor(
+    private db: BetterSqlite3.Database,
+    readonly spec: AdapterSpec,
+    aliases?: Record<string, string>,
+    private opts: { sqliteBatch?: number } = {},
+  ) {
     this.writer = new Writer(db, aliases);
     this.getState = db.prepare('SELECT offset, last_key lastKey, mtime_ms mtimeMs FROM ingest_state WHERE source_ref = ?');
     this.putState = db.prepare(`INSERT INTO ingest_state (source_ref, kind, offset, last_key, mtime_ms, updated_at) VALUES (@ref, @kind, @offset, @lastKey, @mtime, @at)
@@ -145,8 +150,19 @@ export class Ingestor {
     return { file: src.file, records: records.length, skipped };
   }
 
-  /** Diff configured tables by cursor; the harness DB is opened read-only and never written. */
   private ingestSqlite(src: Source): IngestResult {
+    const steps = this.sqliteSteps(src);
+    for (;;) {
+      const r = steps.next();
+      if (r.done) return r.value;
+    }
+  }
+
+  /**
+   * Diff configured tables by cursor; the harness DB is opened read-only and never written.
+   * A generator so callers decide whether to pause between batches (see `ingestFileAsync`).
+   */
+  private *sqliteSteps(src: Source): Generator<void, IngestResult, void> {
     const tables = this.spec.sqlite?.tables ?? [];
     const prev = this.state(src.file);
     const cursors: Record<string, number> = prev?.lastKey ? JSON.parse(prev.lastKey) : {};
@@ -178,7 +194,10 @@ export class Ingestor {
         for (const row of h.prepare(t.sql).iterate({ cursor }) as Iterable<Record<string, unknown>>) {
           max = Math.max(max, Number(row.cursor) || 0);
           batch.push(row);
-          if (batch.length >= SQLITE_BATCH) flush(false);
+          if (batch.length >= (this.opts.sqliteBatch ?? SQLITE_BATCH)) {
+            flush(false);
+            yield;
+          }
         }
         flush(true);
       }
@@ -186,6 +205,59 @@ export class Ingestor {
       close();
     }
     return { file: src.file, records: total, skipped: skippedAll };
+  }
+
+  private running = new Map<string, Promise<IngestResult>>();
+  private dirty = new Set<string>();
+
+  /**
+   * Like `ingestFile`, but gives the event loop a turn between SQLite batches, so a multi-gigabyte
+   * first pass (Cursor) never stalls watchers or IPC. Calls for a source that is already being read
+   * are coalesced into one follow-up pass instead of running concurrently.
+   */
+  ingestFileAsync(src: Source): Promise<IngestResult> {
+    const current = this.running.get(src.file);
+    if (current) {
+      this.dirty.add(src.file);
+      return current;
+    }
+    const run = (async () => {
+      let result: IngestResult;
+      do {
+        this.dirty.delete(src.file);
+        result = await this.runAsync(src);
+      } while (this.dirty.has(src.file));
+      return result;
+    })().finally(() => this.running.delete(src.file));
+    this.running.set(src.file, run);
+    return run;
+  }
+
+  private async runAsync(src: Source): Promise<IngestResult> {
+    if (this.spec.reader !== 'sqlite-table') return this.ingestFile(src);
+    try {
+      const steps = this.sqliteSteps(src);
+      for (;;) {
+        const r = steps.next();
+        if (r.done) return r.value;
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+    } catch (e) {
+      this.failSource.run(src.file, this.spec.harness, (e as Error).message);
+      return { file: src.file, records: 0, skipped: 0 };
+    }
+  }
+
+  async backfillAsync(onProgress?: (p: IngestProgress) => void): Promise<IngestResult[]> {
+    const sources = this.discover();
+    const out: IngestResult[] = [];
+    for (const [i, s] of sources.entries()) {
+      out.push(await this.ingestFileAsync(s));
+      onProgress?.({ harness: this.spec.harness, done: i + 1, total: sources.length });
+      // Let watcher events for other sources through between files too.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    return out;
   }
 
   backfill(onProgress?: (p: IngestProgress) => void): IngestResult[] {
