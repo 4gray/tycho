@@ -29,6 +29,7 @@ export class Writer {
         VALUES (@id, @harness, @nativeId, @projectPath, @title, @titleRank, @ts, @ts, @parentSessionId, @sourceRef)
         ON CONFLICT(id) DO UPDATE SET
           project_path = COALESCE(sessions.project_path, excluded.project_path),
+          parent_session_id = COALESCE(excluded.parent_session_id, sessions.parent_session_id),
           title = CASE WHEN excluded.title_rank >= sessions.title_rank AND excluded.title IS NOT NULL THEN excluded.title ELSE sessions.title END,
           title_rank = MAX(sessions.title_rank, excluded.title_rank),
           started_at = CASE WHEN excluded.started_at = '' THEN sessions.started_at WHEN sessions.started_at = '' THEN excluded.started_at ELSE MIN(sessions.started_at, excluded.started_at) END,

@@ -7,6 +7,8 @@ import { readJsonl } from './jsonl';
 import { openReadOnly, tableColumns } from './sqlite';
 import { Writer } from './writer';
 
+const SQLITE_BATCH = 2000;
+
 export interface IngestProgress {
   harness: string;
   done: number;
@@ -160,13 +162,25 @@ export class Ingestor {
         });
         if (missing.length) continue;
         const cursor = cursors[t.name] ?? 0;
-        const rows = h.prepare(t.sql).all({ cursor }) as Record<string, unknown>[];
-        if (rows.length === 0) continue;
-        const { records, skipped, error } = this.transformAll(rows.map((row) => ({ table: t.name, row })), src);
-        cursors[t.name] = Math.max(cursor, ...rows.map((r) => Number(r.cursor) || 0));
-        this.commit(src, records, { kind: 'cursor', lastKey: JSON.stringify(cursors), mtime: statSync(src.file).mtimeMs, read: rows.length, skipped, error });
-        total += records.length;
-        skippedAll += skipped;
+        // Stream rows and commit in batches: some harness stores (Cursor) hold gigabytes.
+        // The cursor only advances once the whole table pass is done; re-reads are idempotent.
+        let max = cursor;
+        let batch: Record<string, unknown>[] = [];
+        const flush = (final: boolean) => {
+          if (batch.length === 0 && !final) return;
+          const { records, skipped, error } = this.transformAll(batch.map((row) => ({ table: t.name, row })), src);
+          if (final) cursors[t.name] = max;
+          this.commit(src, records, { kind: 'cursor', lastKey: JSON.stringify(cursors), mtime: statSync(src.file).mtimeMs, read: batch.length, skipped, error });
+          total += records.length;
+          skippedAll += skipped;
+          batch = [];
+        };
+        for (const row of h.prepare(t.sql).iterate({ cursor }) as Iterable<Record<string, unknown>>) {
+          max = Math.max(max, Number(row.cursor) || 0);
+          batch.push(row);
+          if (batch.length >= SQLITE_BATCH) flush(false);
+        }
+        flush(true);
       }
     } finally {
       close();
