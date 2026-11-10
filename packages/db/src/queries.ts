@@ -1,5 +1,5 @@
 import type BetterSqlite3 from 'better-sqlite3';
-import type { OverviewData, SessionDetail, SessionRow, SourceRow } from '@tycho/core';
+import type { HarnessStat, OverviewData, SearchHit, SearchQuery, SessionDetail, SessionRow, SourceRow, ToolStat } from '@tycho/core';
 
 const LIVE_WINDOW_MS = 2 * 60 * 1000;
 
@@ -116,4 +116,74 @@ export function sources(db: BetterSqlite3.Database): SourceRow[] {
        FROM sources ORDER BY harness, source_ref`,
     )
     .all() as SourceRow[];
+}
+
+const since = (days: number | undefined, now: Date) => (days ? new Date(now.getTime() - days * 86_400_000).toISOString() : '');
+
+export function tools(db: BetterSqlite3.Database, q: { harness?: string; days?: number }, now = new Date()): ToolStat[] {
+  const rows = db
+    .prepare(
+      `SELECT t.name, s.harness, COUNT(*) calls, SUM(t.status = 'error') errors,
+         AVG(CASE WHEN t.ended_at IS NOT NULL AND t.started_at IS NOT NULL
+             THEN (julianday(t.ended_at) - julianday(t.started_at)) * 86400000 END) avgMs
+       FROM tool_calls t JOIN sessions s ON s.id = t.session_id
+       WHERE t.name != 'unknown' AND COALESCE(t.started_at, s.started_at) >= @since AND (@harness IS NULL OR s.harness = @harness)
+       GROUP BY t.name, s.harness ORDER BY calls DESC LIMIT 200`,
+    )
+    .all({ since: since(q.days, now), harness: q.harness ?? null }) as Omit<ToolStat, 'p90Ms'>[];
+  const durations = db.prepare(
+    `SELECT (julianday(t.ended_at) - julianday(t.started_at)) * 86400000 d
+     FROM tool_calls t JOIN sessions s ON s.id = t.session_id
+     WHERE t.name = @name AND s.harness = @harness AND t.ended_at IS NOT NULL AND t.started_at IS NOT NULL
+       AND t.started_at >= @since ORDER BY d`,
+  ).pluck();
+  return rows.map((r) => {
+    const ds = durations.all({ name: r.name, harness: r.harness, since: since(q.days, now) }) as number[];
+    return { ...r, avgMs: r.avgMs == null ? null : Math.round(r.avgMs), p90Ms: ds.length ? Math.round(ds[Math.min(ds.length - 1, Math.floor(ds.length * 0.9))]!) : null };
+  });
+}
+
+export function harnesses(db: BetterSqlite3.Database, q: { days?: number }, now = new Date()): HarnessStat[] {
+  const s = since(q.days, now);
+  return (
+    db
+      .prepare(
+        `SELECT s.harness,
+           (SELECT COUNT(*) FROM sessions x WHERE x.harness = s.harness AND x.parent_session_id IS NULL AND x.updated_at >= @s) sessions,
+           COALESCE((SELECT SUM(u.cost_usd) FROM usage_events u JOIN sessions y ON y.id = u.session_id WHERE y.harness = s.harness AND u.timestamp >= @s),0) costUsd,
+           COALESCE((SELECT SUM(u.input_tokens+u.output_tokens+u.cache_read_tokens+u.cache_write_tokens) FROM usage_events u JOIN sessions y ON y.id = u.session_id WHERE y.harness = s.harness AND u.timestamp >= @s),0) tokens,
+           (SELECT SUM(u.cache_read_tokens) * 1.0 / NULLIF(SUM(u.input_tokens+u.cache_read_tokens+u.cache_write_tokens),0) FROM usage_events u JOIN sessions y ON y.id = u.session_id WHERE y.harness = s.harness AND u.timestamp >= @s) cacheReadShare,
+           (SELECT COUNT(*) FROM tool_calls t JOIN sessions y ON y.id = t.session_id WHERE y.harness = s.harness AND COALESCE(t.started_at, y.started_at) >= @s) toolCalls,
+           (SELECT COUNT(*) FROM tool_calls t JOIN sessions y ON y.id = t.session_id WHERE y.harness = s.harness AND t.status = 'error' AND COALESCE(t.started_at, y.started_at) >= @s) toolErrors
+         FROM (SELECT DISTINCT harness FROM sessions) s ORDER BY costUsd DESC`,
+      )
+      .all({ s }) as Omit<HarnessStat, 'costPerSession'>[]
+  )
+    .filter((r) => r.sessions > 0 || r.costUsd > 0)
+    .map((r) => ({ ...r, costPerSession: r.sessions ? r.costUsd / r.sessions : 0 }));
+}
+
+/** Turn free text into a safe FTS5 query: every word must match, as a prefix. */
+export function ftsQuery(input: string): string | null {
+  const terms = input.match(/[\p{L}\p{N}_][\p{L}\p{N}_.\-/]*/gu) ?? [];
+  if (terms.length === 0) return null;
+  return terms.slice(0, 12).map((t) => `"${t.replaceAll('"', '""')}"*`).join(' ');
+}
+
+export function search(db: BetterSqlite3.Database, q: SearchQuery, now = new Date()): SearchHit[] {
+  const match = ftsQuery(q.q);
+  if (!match) return [];
+  return db
+    .prepare(
+      `SELECT m.id messageId, m.session_id sessionId, COALESCE(top.title, '(untitled)') sessionTitle, top.harness,
+         top.project_path projectPath, m.role, m.timestamp,
+         snippet(messages_fts, 0, char(2), char(3), '…', 24) snippet
+       FROM messages_fts
+       JOIN messages m ON m.rowid = messages_fts.rowid
+       JOIN sessions s ON s.id = m.session_id
+       JOIN sessions top ON top.id = COALESCE(s.parent_session_id, s.id)
+       WHERE messages_fts MATCH @match AND m.timestamp >= @since AND (@harness IS NULL OR top.harness = @harness)
+       ORDER BY bm25(messages_fts) LIMIT @limit`,
+    )
+    .all({ match, since: since(q.days, now), harness: q.harness ?? null, limit: Math.min(q.limit ?? 50, 200) }) as SearchHit[];
 }
