@@ -1,7 +1,7 @@
 /** The Tycho mark (mural quadrant), drawn inline so it stays crisp at any size. Source: design/logo/tycho-mark.svg */
-export function Mark({ size = 18 }: { size?: number }) {
+export function Mark({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="16 17 68 68" aria-hidden="true" className="mark">
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="mark">
       <defs>
         <linearGradient id="mark-brass" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#e6c992" />
@@ -9,7 +9,9 @@ export function Mark({ size = 18 }: { size?: number }) {
           <stop offset="1" stopColor="#a7834b" />
         </linearGradient>
       </defs>
-      <g fill="none" stroke="url(#mark-brass)" strokeLinecap="round">
+      {/* The app icon's tile: at title-bar size the bare mark loses its reading. */}
+      <rect width="100" height="100" rx="23" fill="#1e1e22" stroke="#ffffff" strokeOpacity=".08" />
+      <g fill="none" stroke="url(#mark-brass)" strokeLinecap="round" transform="translate(50 51) scale(.78) translate(-50 -51)">
         <path d="M24 23 A54 54 0 0 1 78 77" strokeWidth="6.5" />
         <path d="M24 77 L56.7 35.2" strokeWidth="4.5" />
         <circle cx="24" cy="77" r="6" fill="url(#mark-brass)" stroke="none" />
