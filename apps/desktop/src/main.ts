@@ -1,10 +1,11 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, utilityProcess } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { openDb } from '@tycho/db';
 import { IPC } from '@tycho/core';
 import { registerIpc } from './ipc';
 import { createTray } from './tray';
+import type { WorkerEvent } from './worker-protocol';
 
 if (started) app.quit();
 
@@ -42,16 +43,36 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  const db = openDb(path.join(app.getPath('userData'), 'tycho.db'));
+  const dbPath = path.join(app.getPath('userData'), 'tycho.db');
+  // Main migrates first, then only reads; the ingest worker is the single writer.
+  const db = openDb(dbPath);
   registerIpc(db);
   const refreshTray = createTray(db, () => win ?? createWindow());
   createWindow();
 
-  // Placeholder heartbeat until the ingest engine (M1) pushes real change events.
-  setInterval(() => {
-    refreshTray();
-    win?.webContents.send(IPC.change, 'usage');
-  }, 30_000);
+  // Change events are coalesced so the renderer refreshes at most ~4 times a second.
+  const pending = new Set<'usage' | 'sessions' | 'sources'>();
+  let flush: NodeJS.Timeout | null = null;
+  const notify = (topic: 'usage' | 'sessions' | 'sources') => {
+    pending.add(topic);
+    flush ??= setTimeout(() => {
+      flush = null;
+      refreshTray();
+      for (const t of pending) win?.webContents.send(IPC.change, t);
+      pending.clear();
+    }, 250);
+  };
+
+  const worker = utilityProcess.fork(path.join(__dirname, 'ingest-worker.cjs'), [dbPath], { serviceName: 'Tycho ingest' });
+  worker.on('message', (e: WorkerEvent) => {
+    if (e.type === 'changed') notify(e.topic);
+    else if (e.type === 'error') console.error(`[ingest] ${e.harness}: ${e.message}`);
+    else if (e.type === 'ready') notify('sources');
+  });
+  worker.on('exit', (code) => console.error(`[ingest] worker exited with ${code}`));
+  app.on('before-quit', () => worker.kill());
+  // "Running" is time-based, so refresh the tray even when nothing new arrives.
+  setInterval(() => notify('usage'), 60_000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
