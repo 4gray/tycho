@@ -54,6 +54,7 @@ export const UsageEvent = z.object({
   outputTokens: z.number().int().nonnegative(),
   cacheReadTokens: z.number().int().nonnegative(),
   cacheWriteTokens: z.number().int().nonnegative(),
+  cacheWrite1hTokens: z.number().int().nonnegative().optional(),
   reasoningTokens: z.number().int().nonnegative().optional(),
   costUsd: z.number().optional(),
   costSource: CostSource,
