@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tycho logo concepts</title>
+<style>
+  :root { --bg:#0b0b0c; --fg:#ececee; --dim:#8b8b94; --line:#232327; --brass:#c9a46a; --ground:#141416; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui, sans-serif; padding:40px }
+  h1 { font-size:18px; font-weight:600; margin:0 0 4px }
+  p.sub { color:var(--dim); margin:0 0 32px }
+  .concept { display:grid; grid-template-columns:280px 1fr; gap:32px; padding:28px 0; border-top:1px solid var(--line) }
+  .concept h2 { font-size:15px; font-weight:600; margin:0 0 6px }
+  .concept p { color:var(--dim); margin:0 0 6px; max-width:52ch }
+  .sizes { display:flex; align-items:flex-end; gap:24px; flex-wrap:wrap }
+  .sizes figure { margin:0; text-align:center; font-size:11px; color:var(--dim) }
+  .sizes svg { display:block; margin:0 auto 6px }
+  .mono { display:flex; gap:16px; margin-top:18px }
+  .mono div { padding:14px; border-radius:10px }
+</style>
+</head>
+<body>
+<h1>Tycho: logo concepts</h1>
+<p class="sub">Graphite ground, brass mark. Shown at 256, 128, 64, 32 and 16 px, plus one-colour versions for the tray and README.</p>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- macOS-style continuous-corner tile -->
+    <path id="tile" d="M50 0C80 0 89 0 94.5 5.5S100 20 100 50 100 89 94.5 94.5 80 100 50 100 11 100 5.5 94.5 0 80 0 50 0 11 5.5 5.5 20 0 50 0Z"/>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2c48e"/><stop offset="1" stop-color="#b08a4f"/>
+    </linearGradient>
+
+    <!-- A · Mural quadrant: Brahe's great wall quadrant. Graduated arc, a sight line to one recorded star. -->
+    <g id="markA" fill="none" stroke-linecap="round">
+      <path d="M24 23 A54 54 0 0 1 78 77" stroke-width="4.5"/>
+      <path d="M75.0 68.0L70.5 68.8 M72.6 59.3L68.4 60.8 M68.8 51.1L62.3 54.9 M63.6 43.7L60.2 46.6 M57.3 37.4L54.4 40.8 M49.9 32.2L46.1 38.7 M41.7 28.4L40.2 32.6 M33.0 26.0L32.2 30.5" stroke-width="2"/>
+      <path d="M24 77 L51.7 41.5" stroke-width="2.4"/>
+      <circle cx="24" cy="77" r="4.4" stroke="none" style="fill:var(--ink)"/>
+      <circle cx="57.2" cy="34.4" r="6.6" stroke="none" style="fill:var(--ink)"/>
+    </g>
+
+    <!-- B · The record: an orbit with one bright observation and the fading readings before it. -->
+    <g id="markB">
+      <circle cx="50" cy="50" r="29" fill="none" stroke-width="4.5"/>
+      <circle cx="70.5" cy="29.5" r="7.2" style="fill:var(--ink)"/>
+      <circle cx="79" cy="50" r="3.6" style="fill:var(--ink)" opacity=".75"/>
+      <circle cx="70.5" cy="70.5" r="2.6" style="fill:var(--ink)" opacity=".5"/>
+      <circle cx="50" cy="79" r="1.8" style="fill:var(--ink)" opacity=".3"/>
+    </g>
+
+    <!-- C · Monogram: a lowercase t drawn as an instrument: plumb line, horizon arc, a star where the dot would be. -->
+    <g id="markC" fill="none" stroke-linecap="round">
+      <path d="M46 28 V66 Q46 76 58 76" stroke-width="6.5"/>
+      <path d="M30 42 Q50 36 70 42" stroke-width="5"/>
+      <circle cx="66" cy="24" r="5.6" stroke="none" style="fill:var(--ink)"/>
+    </g>
+  </defs>
+</svg>
+
+<template id="row">
+  <section class="concept">
+    <div><h2></h2><p class="why"></p><p class="risk"></p></div>
+    <div>
+      <div class="sizes"></div>
+      <div class="mono"></div>
+    </div>
+  </section>
+</template>
+
+<script>
+const concepts = [
+  { id: 'A', name: 'A · Mural quadrant',
+    why: 'Brahe’s best-known instrument: a brass quarter-circle on a wall, used to sight a star and read its position off the graduated arc. The sight line ending on one star is Tycho reading one session.',
+    risk: 'Most specific to Tycho Brahe; the ticks get faint below 32 px, so the tray uses a simplified cut.' },
+  { id: 'B', name: 'B · The record',
+    why: 'An orbit with one bright observation and the fading readings before it: history backfilled, then the live point. Already close to the current tray icon.',
+    risk: 'Simplest and most legible at 16 px; also the most generic (rings and dots are common).' },
+  { id: 'C', name: 'C · Monogram',
+    why: 'A lowercase t built from instrument parts: plumb line, curved horizon, a star for the dot. Reads as the name and as an observing tool.',
+    risk: 'Most “brand-like”; letter marks are less distinctive as a tiny tray glyph.' },
+];
+const tile = (mark, size) => `
+  <svg width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="Tycho icon ${size}px">
+    <use href="#tile" fill="#141416"/>
+    <g stroke="url(#brass)" fill="url(#brass)" style="--ink:url(#brass)"><use href="#mark${mark}"/></g>
+  </svg>`;
+const mono = (mark, fg, bg) => `
+  <div style="background:${bg}">
+    <svg width="40" height="40" viewBox="0 0 100 100" style="color:${fg}"><g stroke="currentColor" fill="currentColor" style="--ink:currentColor"><use href="#mark${mark}"/></g></svg>
+  </div>`;
+const tpl = document.getElementById('row');
+for (const c of concepts) {
+  const n = tpl.content.cloneNode(true);
+  n.querySelector('h2').textContent = c.name;
+  n.querySelector('.why').textContent = c.why;
+  n.querySelector('.risk').textContent = c.risk;
+  n.querySelector('.sizes').innerHTML = [256, 128, 64, 32, 16].map((s) => `<figure>${tile(c.id, s)}${s}</figure>`).join('');
+  n.querySelector('.mono').innerHTML = mono(c.id, '#ececee', '#1b1b1f') + mono(c.id, '#111', '#ececee');
+  document.body.appendChild(n);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Tycho app icon: Brahe's mural quadrant in brass on a graphite tile (macOS 824px icon grid). -->
+  <defs>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e6c992"/><stop offset=".55" stop-color="#c9a46a"/><stop offset="1" stop-color="#a7834b"/></linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e1e22"/><stop offset="1" stop-color="#111113"/></linearGradient>
+  </defs>
+  <!-- Soft drop shadow as stacked translucent tiles (no blur filter, so no tiling seams). -->
+  <rect x="100" y="112" width="824" height="824" rx="185" fill="#000" fill-opacity=".10"/>
+  <rect x="100" y="106" width="824" height="824" rx="185" fill="#000" fill-opacity=".14"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#ground)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" stroke="#fff" stroke-opacity=".07"/>
+  <g transform="translate(512 512) scale(7.3) translate(-50 -51)"><g fill="none" stroke="url(#brass)" stroke-linecap="round">
+    <path d="M24 23 A54 54 0 0 1 78 77" stroke-width="4.5"/>
+    <path d="M74.96 68.01L70.53 68.80 M72.63 59.30L68.40 60.84 M68.82 51.12L62.32 54.88 M63.64 43.74L60.20 46.63 M41.70 28.37L40.16 32.60 M32.99 26.04L32.20 30.47" stroke-width="2"/>
+    <path d="M24 77 L51.70 41.54" stroke-width="2.4"/>
+    <circle cx="24" cy="77" r="4.4" fill="url(#brass)" stroke="none"/>
+    <circle cx="57.25" cy="34.45" r="6.6" fill="url(#brass)" stroke="none"/>
+  </g></g>
+</svg>
