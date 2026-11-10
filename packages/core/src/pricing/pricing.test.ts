@@ -13,6 +13,8 @@ describe('pricing', () => {
     expect(resolveModel('gpt-x', table)).toBe('openai/gpt-x');
     expect(resolveModel('nope', table)).toBeUndefined();
     expect(resolveModel('mine', table, { mine: 'gpt-x' })).toBe('openai/gpt-x');
+    expect(resolveModel('claude-4.5-sonnet-thinking', table)).toBe('claude-sonnet-4-5');
+    expect(resolveModel('claude-4.5-sonnet-high-thinking', table)).toBe('claude-sonnet-4-5');
   });
 
   it('sums all four token kinds', () => {

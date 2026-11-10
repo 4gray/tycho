@@ -16,7 +16,7 @@ export type PriceTable = Record<string, Price>;
 export const BUNDLED_PRICES = snapshot as PriceTable;
 
 const TIER = 200_000;
-const PREFIXES = ['', 'anthropic/', 'openai/', 'gemini/', 'openrouter/'];
+const PREFIXES = ['', 'anthropic/', 'openai/', 'gemini/', 'xai/', 'openrouter/'];
 
 /**
  * Resolve a harness model id to a price-table key.
@@ -26,8 +26,10 @@ const PREFIXES = ['', 'anthropic/', 'openai/', 'gemini/', 'openrouter/'];
 export function resolveModel(model: string, table: PriceTable = BUNDLED_PRICES, aliases: Record<string, string> = {}): string | undefined {
   const candidates = new Set<string>();
   const base = aliases[model] ?? model;
-  const stripped = base.replace(/\[.*\]$/, '');
-  for (const m of [base, stripped, stripped.replace(/-\d{8}$/, ''), stripped.replace(/@.*$/, ''), stripped.replace(/-latest$/, '')]) {
+  const stripped = base.replace(/\[.*\]$/, '').replace(/(-(thinking|max|fast|high|medium|low))+$/, '');
+  // Cursor style: claude-4.5-sonnet → claude-sonnet-4-5
+  const reordered = stripped.replace(/^claude-(\d+)(?:\.(\d+))?-([a-z]+)$/, (_, a: string, b: string | undefined, fam: string) => `claude-${fam}-${a}${b ? `-${b}` : ''}`);
+  for (const m of [base, stripped, reordered, stripped.replace(/-\d{8}$/, ''), stripped.replace(/@.*$/, ''), stripped.replace(/-latest$/, '')]) {
     for (const p of PREFIXES) candidates.add(p + m);
   }
   for (const c of candidates) if (table[c]) return c;
