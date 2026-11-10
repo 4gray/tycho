@@ -4,7 +4,7 @@ import { openDb, queries } from './index';
 describe('db', () => {
   it('migrates idempotently and answers empty queries', () => {
     const db = openDb(':memory:');
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
     expect(queries.overview(db).cost30d).toBe(0);
     expect(queries.sessions(db, {})).toEqual([]);
   });
@@ -13,13 +13,13 @@ describe('db', () => {
     const db = openDb(':memory:');
     const now = new Date();
     const ts = now.toISOString();
-    db.prepare(`INSERT INTO sessions VALUES ('claude-code:a','claude-code','a','/p','Fix tests',?,?,NULL,'f')`).run(ts, ts);
-    const ins = db.prepare(`INSERT INTO usage_events VALUES (?, 'claude-code:a', NULL, ?, 'anthropic', 'opus', 100, 50, 900, 10, NULL, ?, 'computed')`);
+    db.prepare(`INSERT INTO sessions (id,harness,native_id,project_path,title,started_at,updated_at,source_ref) VALUES ('claude-code:a','claude-code','a','/p','Fix tests',?,?,'f')`).run(ts, ts);
+    const ins = db.prepare(`INSERT INTO usage_events (id, session_id, timestamp, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, cost_source) VALUES (?, 'claude-code:a', ?, 'anthropic', 'opus', 100, 50, 900, 10, ?, 'computed')`);
     ins.run('u1', ts, 1.5);
     ins.run('u2', ts, 0.5);
     db.prepare(`INSERT INTO tool_calls VALUES ('t1','claude-code:a','m','bash','Bash',NULL,NULL,NULL,'error',NULL,NULL)`).run();
     const [row] = queries.sessions(db, {}, now);
-    expect(row).toMatchObject({ costUsd: 2, toolCalls: 1, toolErrors: 1, costSource: 'computed', live: true, model: 'opus' });
+    expect(row).toMatchObject({ subagents: 0, unpriced: false, costUsd: 2, toolCalls: 1, toolErrors: 1, costSource: 'computed', live: true, model: 'opus' });
     const ov = queries.overview(db, now);
     expect(ov.costToday).toBe(2);
     expect(ov.cacheReadShare).toBeCloseTo(1800 / (200 + 1800 + 20));
