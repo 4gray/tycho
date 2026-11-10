@@ -18,6 +18,8 @@ function createWindow(): BrowserWindow {
     minWidth: 760,
     minHeight: 520,
     backgroundColor: '#0b0b0c',
+    // Linux uses the window icon for the taskbar; macOS and Windows take it from the app bundle.
+    ...(process.platform === 'linux' ? { icon: path.join(app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..'), 'assets', 'icon.png') } : {}),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 14 },
     show: false,

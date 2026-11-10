@@ -24,6 +24,8 @@ const config: ForgeConfig = {
     name: 'Tycho',
     // Lowercase binary name for Linux packages; the workspace package name (@tycho/desktop) is not valid there.
     executableName: 'tycho',
+    // Forge picks icon.icns on macOS and icon.ico on Windows.
+    icon: 'assets/icon',
     // .node binaries cannot load from inside an asar archive.
     asar: { unpack: '**/*.node' },
     extraResource: ['assets'],
@@ -43,10 +45,10 @@ const config: ForgeConfig = {
   // better-sqlite3 ships Node-API prebuilds that load in Electron as-is; nothing needs compiling.
   rebuildConfig: { onlyModules: [] },
   makers: [
-    new MakerSquirrel({ name: 'Tycho', setupExe: 'Tycho-Setup.exe' }),
+    new MakerSquirrel({ name: 'Tycho', setupExe: 'Tycho-Setup.exe', setupIcon: 'assets/icon.ico' }),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({ options: { name: 'tycho', productName: 'Tycho', bin: 'tycho', license: 'MIT', categories: ['Development'] } }),
-    new MakerDeb({ options: { name: 'tycho', productName: 'Tycho', bin: 'tycho', section: 'devel', categories: ['Development'] } }),
+    new MakerRpm({ options: { name: 'tycho', productName: 'Tycho', bin: 'tycho', license: 'MIT', categories: ['Development'], icon: 'assets/icon.png' } }),
+    new MakerDeb({ options: { name: 'tycho', productName: 'Tycho', bin: 'tycho', section: 'devel', categories: ['Development'], icon: 'assets/icon.png' } }),
   ],
   plugins: [
     new VitePlugin({
