@@ -49,13 +49,60 @@ export interface SourceRow {
   records: number;
 }
 
+export interface ToolStat {
+  name: string;
+  harness: string;
+  calls: number;
+  errors: number;
+  /** Mean of calls that have both a start and an end; null when none do. */
+  avgMs: number | null;
+  p90Ms: number | null;
+}
+
+export interface HarnessStat {
+  harness: string;
+  sessions: number;
+  costUsd: number;
+  tokens: number;
+  toolCalls: number;
+  toolErrors: number;
+  cacheReadShare: number | null;
+  /** Average cost of a top-level session (subagents rolled in). */
+  costPerSession: number;
+}
+
+export interface SearchHit {
+  messageId: string;
+  sessionId: string;
+  sessionTitle: string;
+  harness: string;
+  projectPath: string | null;
+  role: string;
+  timestamp: string;
+  /** Excerpt with matches wrapped in \u0002 … \u0003 (render as <mark>, never as HTML). */
+  snippet: string;
+}
+
+export interface SearchQuery {
+  q: string;
+  harness?: string;
+  /** Only messages from the last N days. */
+  days?: number;
+  limit?: number;
+}
+
 /** The typed surface the preload exposes as `window.tycho`. Every method is one IPC channel. */
 export interface TychoApi {
   overview(): Promise<OverviewData>;
   sessions(q: { harness?: string; limit?: number; offset?: number }): Promise<SessionRow[]>;
   session(id: string): Promise<SessionDetail | null>;
   sources(): Promise<SourceRow[]>;
+  tools(q: { harness?: string; days?: number }): Promise<ToolStat[]>;
+  harnesses(q: { days?: number }): Promise<HarnessStat[]>;
+  search(q: SearchQuery): Promise<SearchHit[]>;
   onChange(cb: (topic: 'usage' | 'sessions' | 'sources') => void): () => void;
+  /** Main asks the UI to show a session (e.g. picked from the tray). */
+  onOpenSession(cb: (id: string) => void): () => void;
 }
 
 export const IPC = {
@@ -63,5 +110,9 @@ export const IPC = {
   sessions: 'tycho:sessions',
   session: 'tycho:session',
   sources: 'tycho:sources',
+  tools: 'tycho:tools',
+  harnesses: 'tycho:harnesses',
+  search: 'tycho:search',
   change: 'tycho:change',
+  openSession: 'tycho:open-session',
 } as const;
