@@ -1,0 +1,7 @@
+node_modules/
+.vite/
+out/
+.impeccable/questions/
+.impeccable/mocks/
+.impeccable/review/
+.DS_Store

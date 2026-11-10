@@ -1,0 +1,20 @@
+{
+  "name": "tycho",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "npm run start -w @tycho/desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^4.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true
+  }
+}
