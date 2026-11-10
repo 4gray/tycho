@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # the minimum the README promises
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Proves the app packages on every OS (native module copied, icons found) without making installers.
+      - name: Package
+        run: npm run package
+
+      - name: Check the packaged app ships the SQLite driver
+        shell: bash
+        run: |
+          found=$(find apps/desktop/out -path '*app.asar.unpacked/node_modules/better-sqlite3/prebuilds*' -name '*.node' | head -1)
+          test -n "$found" || { echo "better-sqlite3 binaries missing from the package"; exit 1; }
+          echo "ok: $found"
