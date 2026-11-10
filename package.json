@@ -8,7 +8,9 @@
   "scripts": {
     "start": "npm run start -w @tycho/desktop",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prices": "node scripts/update-prices.mjs",
+    "ingest:check": "npx tsx scripts/ingest-check.ts"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

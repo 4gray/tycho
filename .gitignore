@@ -5,3 +5,4 @@ out/
 .impeccable/mocks/
 .impeccable/review/
 .DS_Store
+.preview-dump.json
