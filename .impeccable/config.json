@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "design/prototype/index.html"
+        ],
+        "createdAt": "2026-11-10T18:25:36.144Z",
+        "reason": "agent decided: dot marks sessions whose source file is being actively appended (airborne), i.e. genuinely live data"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "files": [
+          "design/prototype/index.html"
+        ],
+        "createdAt": "2026-11-10T18:29:11.982Z",
+        "reason": "agent decided: user asked for a sleek T3 Code-style UI; Operate surface where a workhorse UI face is appropriate"
+      }
+    ]
+  }
+}

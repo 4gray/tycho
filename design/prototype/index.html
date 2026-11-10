@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tycho</title>
+<!-- Prototype only: the Electron build self-hosts these faces (local-only app). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0b0c; --panel:#111113; --raise:#17171a; --line:#232327; --line-2:#2c2c31;
+  --fg:#ececee; --fg-2:#a1a1a8; --fg-3:#8b8b94;
+  --claude:#e0a050; --opencode:#6c93e6; --cursor:#5fbf7f; --alert:#f07360; --ok:#5fbf7f;
+  --f-ui:"Geist",system-ui,sans-serif; --f-mono:"Geist Mono",ui-monospace,monospace;
+  --r:8px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:13px/1.5 var(--f-ui);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+::selection{background:#3a3a42}
+:focus-visible{outline:1px solid var(--fg-2);outline-offset:2px;border-radius:4px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+.app{display:grid;grid-template-columns:216px 1fr;grid-template-rows:44px 1fr;height:100vh}
+.titlebar{grid-column:1/-1;display:flex;align-items:center;border-bottom:1px solid var(--line);-webkit-app-region:drag;padding:0 16px 0 84px;gap:24px}
+.brand{font-weight:600;font-size:13px;letter-spacing:-.01em}
+.readout{display:flex;gap:20px;-webkit-app-region:no-drag}
+.readout div{display:flex;align-items:baseline;gap:6px}
+.readout b{font-weight:500;font-size:13px}
+.readout span{font-size:12px;color:var(--fg-3)}
+.readout .live b{color:var(--fg)}
+.readout .live b::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
+.titlebar .note{margin-left:auto;font-size:12px;color:var(--fg-3);white-space:nowrap}
+
+nav{background:var(--panel);border-right:1px solid var(--line);padding:10px 8px}
+nav button{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:6px 10px;border-radius:6px;color:var(--fg-2);font-size:13px}
+nav button:hover{background:var(--raise);color:var(--fg)}
+nav button[aria-current=true]{background:var(--raise);color:var(--fg)}
+nav small{font-size:11px;color:var(--fg-3)}
+nav hr{border:0;border-top:1px solid var(--line);margin:12px 6px}
+.legend{padding:0 10px;font-size:12px;color:var(--fg-3);display:grid;gap:6px}
+.legend i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:8px;vertical-align:1px}
+.legend b{color:var(--fg-2);font-weight:500}
+
+main{overflow:auto;padding:28px 36px 48px}
+.view{display:none;max-width:1180px}.view.on{display:block}
+h2{font-size:12px;font-weight:500;color:var(--fg-3);margin:32px 0 10px}
+h2:first-child{margin-top:0}
+h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.015em}
+.sub{color:var(--fg-3);margin:0 0 20px}
+
+/* session rows */
+.rack{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
+.rack:empty{display:none}
+.strip{display:grid;grid-template-columns:96px minmax(0,1fr) 120px 72px 80px 92px;align-items:center;min-height:52px;padding:0 14px;gap:12px;border-top:1px solid var(--line);transition:background .15s}
+.strip:first-child{border-top:0}
+.strip>*{min-width:0}
+.strip:hover,.strip[aria-expanded=true]{background:var(--raise)}
+.holder{font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:8px}
+.holder::before{content:"";width:6px;height:6px;border-radius:50%;flex:none}
+.h-claude .holder::before{background:var(--claude)}.h-opencode .holder::before{background:var(--opencode)}.h-cursor .holder::before{background:var(--cursor)}
+.title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fig{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj .fig{color:var(--fg-2);font-size:12px!important}
+.lbl{display:none}
+.tok .fig,.strip>div:nth-child(5) .fig{color:var(--fg-2);text-align:right}
+.cost{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.cost .fig{font-weight:500}
+.stamp{font:500 10px var(--f-mono);width:18px;height:18px;display:grid;place-items:center;border-radius:4px;background:var(--raise);color:var(--fg-3);border:1px solid var(--line-2)}
+.stamp.E{color:var(--alert);border-style:dashed}
+.live-dot{display:inline-block;width:6px;height:6px;background:var(--ok);border-radius:50%;margin-right:8px;vertical-align:1px}
+.err{color:var(--alert)}
+.strip small{color:var(--alert);font-size:12px}
+
+/* tape */
+.tape{display:none;padding:16px 14px 18px 122px;border-top:1px solid var(--line);background:var(--bg)}
+.tape.on{display:block}
+.tape-head{display:flex;white-space:nowrap;overflow:hidden;gap:16px;font-size:12px;color:var(--fg-3);margin-bottom:14px}
+.tape-head b{overflow:hidden;text-overflow:ellipsis;color:var(--fg);font-weight:500}
+.gantt{display:grid;grid-template-columns:72px 1fr;gap:4px 12px;font:12px var(--f-mono);color:var(--fg-2);align-items:center}
+.gantt .track{position:relative;height:8px;background:var(--panel);border-radius:4px}
+.gantt .bar{height:8px;border-radius:4px;background:#5a5a64}
+.gantt .bar.error{background:var(--alert)}
+.turns{display:flex;gap:2px;align-items:flex-end;height:40px;margin-top:18px}
+.turns span{flex:1;background:#4a4a52;min-height:2px;border-radius:2px 2px 0 0}
+.turns span.cache{background:#2c2c33}
+.tape-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;color:var(--fg-3)}
+.tape-foot button{font-size:12px;border:1px solid var(--line-2);border-radius:6px;padding:5px 10px;color:var(--fg)}
+.tape-foot button:hover{background:var(--raise)}
+
+/* overview */
+.board{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:28px}
+.chart{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:16px}
+.chart svg{width:100%;height:auto;display:block}
+.models{display:grid;gap:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:16px}
+.models div{display:grid;grid-template-columns:1fr auto;font-size:12px;color:var(--fg-2)}
+.models div span:last-of-type{color:var(--fg)}
+.models .m{height:4px;grid-column:1/-1;background:var(--raise);border-radius:4px;margin-top:6px;overflow:hidden}
+.models .m i{display:block;height:100%;border-radius:4px}
+.cache-line{font-size:20px;font-weight:500;letter-spacing:-.02em}
+.small{font-size:12px;color:var(--fg-3);font-weight:400;letter-spacing:0}
+
+/* tables */
+table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+th{font-size:12px;font-weight:500;color:var(--fg-3);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+td{padding:10px 14px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right}
+.chip{font-size:12px;color:var(--fg-2);display:inline-flex;align-items:center;gap:8px;background:none!important}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c)}
+.filters{display:inline-flex;gap:2px;margin-bottom:16px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.filters button{padding:4px 10px;border-radius:6px;font-size:12px;color:var(--fg-3)}
+.filters button[aria-pressed=true]{background:var(--raise);color:var(--fg)}
+.search input{width:100%;font:14px var(--f-ui);background:var(--panel);color:var(--fg);padding:10px 14px;border:1px solid var(--line-2);border-radius:var(--r);outline:0}
+.search input:focus{border-color:#4a4a52}
+.hit{border-bottom:1px solid var(--line);padding:14px 0}
+.hit b{font-weight:500;margin-left:6px}
+.hit p{margin:6px 0 0;max-width:72ch;color:var(--fg-2)}
+mark{background:rgba(224,160,80,.18);color:var(--claude);border-radius:3px;padding:0 2px}
+code{font:12px var(--f-mono);color:var(--fg-2)}
+.health{display:inline-flex;align-items:center;gap:8px;color:var(--fg-2)}
+.health i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.health.warn i{background:var(--alert)}
+.health.warn{color:var(--alert)}
+
+.tray{width:260px;background:var(--panel);border:1px solid var(--line-2);border-radius:10px;padding:14px;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.tray b{font-size:22px;font-weight:500;letter-spacing:-.02em}
+.tray .lbl{display:block;font-size:12px;color:var(--fg-3)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:900px){.titlebar .note{display:none}.board{grid-template-columns:1fr}.strip{grid-template-columns:10px minmax(0,1fr) 92px}.holder{font-size:0;gap:0}.strip .proj,.strip .tok,.strip>div:nth-child(5){display:none}.tape{padding-left:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="titlebar">
+    <div class="brand">Tycho</div>
+    <div class="readout" aria-label="API-equivalent cost">
+      <div><b id="r-today">$0</b><span>Today</span></div>
+      <div><b id="r-7">$0</b><span>7 days</span></div>
+      <div><b id="r-30">$0</b><span>30 days</span></div>
+      <div class="live"><b id="r-live">0</b><span>running</span></div>
+    </div>
+    <div class="note">API-equivalent cost · sample data</div>
+  </header>
+
+  <nav aria-label="Views">
+    <button data-v="rack" aria-current="true">Overview</button>
+    <button data-v="sessions">Sessions <small id="n-sessions"></small></button>
+    <button data-v="tools">Tools</button>
+    <button data-v="search">Search</button>
+    <button data-v="sources">Sources <small class="err">1 issue</small></button>
+    <hr>
+    <div class="legend">
+      <span><i style="background:var(--claude)"></i>Claude Code</span>
+      <span><i style="background:var(--opencode)"></i>OpenCode</span>
+      <span><i style="background:var(--cursor)"></i>Cursor</span>
+      <span style="margin-top:8px"><b>R</b> reported · <b>C</b> computed · <b>E</b> estimated</span>
+    </div>
+  </nav>
+
+  <main>
+    <section class="view on" id="v-rack">
+      <div class="board">
+        <div>
+          <h2>Running</h2>
+          <div class="rack" id="rack-live"></div>
+          <h2>Earlier today</h2>
+          <div class="rack" id="rack-today"></div>
+        </div>
+        <div>
+          <h2>Cost, last 14 days</h2>
+          <div class="chart"><svg id="chart" viewBox="0 0 360 180" role="img" aria-label="Daily cost stacked by harness"></svg></div>
+          <h2>By model, 30 days</h2>
+          <div class="models" id="models"></div>
+          <h2>Cache reads</h2>
+          <div class="cache-line">71% <span class="small">of input tokens came from cache</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-sessions">
+      <h1>Sessions</h1><p class="sub">All sessions across harnesses, newest first.</p>
+      <div class="filters" id="filters">
+        <button aria-pressed="true" data-h="all">All</button>
+        <button aria-pressed="false" data-h="claude">Claude Code</button>
+        <button aria-pressed="false" data-h="opencode">OpenCode</button>
+        <button aria-pressed="false" data-h="cursor">Cursor</button>
+      </div>
+      <div class="rack" id="rack-all"></div>
+    </section>
+
+    <section class="view" id="v-tools">
+      <h1>Tools</h1><p class="sub">What agents reached for, and how often it failed. Last 30 days.</p>
+      <table><thead><tr><th>Tool</th><th>Harness</th><th class="n">Calls</th><th class="n">Error rate</th><th class="n">Avg duration</th></tr></thead><tbody id="tools"></tbody></table>
+    </section>
+
+    <section class="view" id="v-search">
+      <h1>Search</h1><p class="sub">Full-text across every harness. Secrets are redacted before indexing.</p>
+      <div class="search"><input value="migration" aria-label="Search messages"></div>
+      <div id="hits" style="margin-top:16px"></div>
+    </section>
+
+    <section class="view" id="v-sources">
+      <h1>Sources</h1><p class="sub">Tycho only reads these. Nothing is installed in any harness.</p>
+      <table><thead><tr><th>Harness</th><th>Path</th><th>Health</th><th>Last ingest</th><th class="n">Records</th></tr></thead><tbody>
+        <tr><td><span class="chip" style="--c:var(--claude)">Claude</span></td><td><code>~/.claude/projects</code></td><td><span class="health"><i></i>Tailing</span></td><td>2s ago</td><td class="n">184,302</td></tr>
+        <tr><td><span class="chip" style="--c:var(--opencode)">OpenCode</span></td><td><code>~/.local/share/opencode/storage</code></td><td><span class="health"><i></i>Watching</span></td><td>41s ago</td><td class="n">22,918</td></tr>
+        <tr><td><span class="chip" style="--c:var(--cursor)">Cursor</span></td><td><code>~/Library/Application Support/Cursor/…/state.vscdb</code></td><td><span class="health warn"><i></i>Schema changed in 1.9: 312 records skipped</span></td><td>6m ago</td><td class="n">9,450</td></tr>
+      </tbody></table>
+      <h2>Menu bar</h2>
+      <div class="tray"><b id="tray-cost">$0</b><div class="lbl">Today, API-equivalent</div><p style="margin:12px 0 0">2 sessions running · Open Tycho</p></div>
+    </section>
+  </main>
+</div>
+
+<script>
+// Synthetic demonstration data.
+const H={claude:'Claude',opencode:'OpenCode',cursor:'Cursor'};
+const S=[
+ {h:'claude',t:'Add FTS5 search to session store',p:'tycho',m:'opus-5.5',tok:'1.2M',tools:48,c:4.82,src:'C',live:1,when:'running 14m',err:0},
+ {h:'opencode',t:'Refactor billing webhook retries',p:'ledger-api',m:'sonnet-5.5',tok:'410k',tools:31,c:1.37,src:'R',live:1,when:'running 3m',err:2},
+ {h:'claude',t:'Fix flaky auth e2e test on CI',p:'storefront',m:'sonnet-5.5',tok:'860k',tools:62,c:2.11,src:'C',when:'14:02–14:39',err:5},
+ {h:'cursor',t:'Tailwind migration for settings page',p:'storefront',m:'unknown',tok:'—',tools:12,c:0.9,src:'E',when:'11:20–11:48',err:0},
+ {h:'claude',t:'Write migration for usage_events',p:'tycho',m:'haiku-5.5',tok:'220k',tools:19,c:0.31,src:'C',when:'09:47–10:05',err:0},
+ {h:'opencode',t:'Explain slow Postgres query plan',p:'ledger-api',m:'gpt-5',tok:'95k',tools:6,c:0.42,src:'R',when:'08:58–09:10',err:0},
+];
+const fmt=n=>'$'+n.toFixed(2);
+function strip(s,i){
+  return `<div class="strip h-${s.h}" role="button" tabindex="0" aria-expanded="false" data-i="${i}">
+    <div class="holder">${H[s.h]}</div>
+    <div><div class="title">${s.live?'<span class="live-dot" aria-label="live"></span>':''}${s.t}</div><div class="meta">${s.m} · ${s.when}</div></div>
+    <div class="proj"><div class="fig" style="font-size:15px">${s.p}</div><div class="lbl">Project</div></div>
+    <div class="tok"><div class="fig">${s.tok}</div><div class="lbl">Tokens</div></div>
+    <div><div class="fig ${s.err?'err':''}">${s.tools}${s.err?` <small>· ${s.err} failed</small>`:''}</div><div class="lbl">Tools${s.err?' / failed':''}</div></div>
+    <div class="cost"><div><div class="fig">${s.src==='E'?'~':''}${fmt(s.c)}</div><div class="lbl">Cost</div></div><span class="stamp ${s.src}" title="${{R:'Reported by harness',C:'Computed from price table',E:'Estimated'}[s.src]}">${s.src}</span></div>
+  </div><div class="tape" id="tape-${i}"></div>`;
+}
+function tape(s){
+  const names=['read','grep','edit','bash','read','edit','bash','task','edit','bash'];
+  let g='',t=0;
+  names.forEach((n,k)=>{const d=4+((k*37)%18),e=s.err&&k===6;g+=`<span>${n}</span><div class="track"><div class="bar ${e?'error':''}" style="position:absolute;left:${t}%;width:${d}%"></div></div>`;t=Math.min(92,t+d*0.8);});
+  const turns=Array.from({length:28},(_,k)=>`<span class="${k%3?'':'cache'}" style="height:${10+((k*53)%90)}%"></span>`).join('');
+  return `<div class="tape-head"><span><b>${s.t}</b></span><span>${s.p}</span><span>${s.m}</span><span>${H[s.h]}</span></div>
+  <div class="gantt">${g}</div><div class="turns" aria-label="Tokens per turn">${turns}</div>
+  <div class="tape-foot"><span>Tokens per turn · pale = cache read</span><button>Open transcript</button></div>`;
+}
+function wire(el){
+  el.querySelectorAll('.strip').forEach(st=>{
+    const go=()=>{const i=st.dataset.i,tp=st.nextElementSibling,open=st.getAttribute('aria-expanded')==='true';
+      st.setAttribute('aria-expanded',!open);tp.classList.toggle('on',!open);if(!open)tp.innerHTML=tape(S[i]);};
+    st.onclick=go;st.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};
+  });
+}
+function render(id,list){const el=document.getElementById(id);el.innerHTML=list.map(s=>strip(s,S.indexOf(s))).join('');wire(el);}
+render('rack-live',S.filter(s=>s.live));render('rack-today',S.filter(s=>!s.live));render('rack-all',S);
+const today=S.reduce((a,s)=>a+s.c,0);
+document.getElementById('r-today').textContent=fmt(today);document.getElementById('r-7').textContent='$61.40';document.getElementById('r-30').textContent='$238.12';
+document.getElementById('r-live').textContent=S.filter(s=>s.live).length;document.getElementById('tray-cost').textContent=fmt(today);
+document.getElementById('n-sessions').textContent='1,284';
+
+// chart
+const days=Array.from({length:14},(_,d)=>({claude:3+((d*7)%9),opencode:1+((d*5)%4),cursor:(d*3)%3}));
+let svg='';const W=360,Hh=150,bw=W/14;const max=16;
+days.forEach((d,i)=>{let y=Hh;['claude','opencode','cursor'].forEach(k=>{const h=d[k]/max*Hh;y-=h;svg+=`<rect x="${i*bw+3}" y="${y}" width="${bw-6}" height="${h}" fill="var(--${k})"/>`;});});
+svg+=`<line x1="0" x2="${W}" y1="${Hh}" y2="${Hh}" stroke="var(--line)"/>`;
+[0,8,16].forEach(v=>svg+=`<text x="0" y="${Hh-v/max*Hh-3}" fill="var(--fg-3)" font-size="10" font-family="Geist">$${v}</text>`);
+svg+=`<text x="0" y="172" fill="var(--fg-3)" font-size="10" font-family="Geist">Oct 28</text><text x="${W}" y="172" text-anchor="end" fill="var(--fg-3)" font-size="10" font-family="Geist">Today</text>`;
+document.getElementById('chart').innerHTML=svg;
+
+document.getElementById('models').innerHTML=[['opus-5.5',142.1,'claude'],['sonnet-5.5',61.8,'claude'],['gpt-5',18.4,'opencode'],['cursor (est.)',~~9.6,'cursor'],['haiku-5.5',6.2,'claude']]
+ .map(([m,c,h])=>`<div><span>${m}</span><span>${fmt(c)}</span><div class="m"><i style="width:${c/142.1*100}%;background:var(--${h})"></i></div></div>`).join('');
+
+document.getElementById('tools').innerHTML=[['bash','claude',4210,6.1,'2.4s'],['read','claude',3880,0.4,'0.1s'],['edit','claude',2602,3.2,'0.2s'],['bash','opencode',911,8.9,'3.1s'],['grep','claude',870,0.0,'0.3s'],['edit_file','cursor',402,'—','—']]
+ .map(([n,h,c,e,d])=>`<tr><td><code>${n}</code></td><td><span class="chip" style="--c:var(--${h})">${H[h]}</span></td><td class="n">${c.toLocaleString()}</td><td class="n ${e>5?'err':''}">${e==='—'?e:e.toFixed(1)+'%'}</td><td class="n">${d}</td></tr>`).join('');
+
+document.getElementById('hits').innerHTML=[['claude','Write migration for usage_events','tycho','Today 09:51','Add a <mark>migration</mark> that creates usage_events with a unique index on (message_id, request_id) so re-ingest stays idempotent.'],['cursor','Tailwind migration for settings page','storefront','Today 11:22','Start the Tailwind <mark>migration</mark> with the settings page; keep the old CSS module until the form passes.'],['opencode','Squash old migrations','ledger-api','Nov 3','The <mark>migration</mark> history has 140 files; squash everything before 2025 into a baseline.']]
+ .map(([h,t,p,w,x])=>`<div class="hit"><span class="chip" style="--c:var(--${h})">${H[h]}</span> <b>${t}</b> <span class="small">${p} · ${w}</span><p>${x}</p></div>`).join('');
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-current',x===b));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id==='v-'+b.dataset.v));});
+document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));render('rack-all',b.dataset.h==='all'?S:S.filter(s=>s.h===b.dataset.h));});
+</script>
+</body>
+</html>
