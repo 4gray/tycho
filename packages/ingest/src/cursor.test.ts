@@ -147,3 +147,22 @@ describe('async ingestion', () => {
     expect(db.prepare(`SELECT COUNT(*) FROM tool_calls`).pluck().get()).toBe(2);
   });
 });
+
+describe('cursor workspace paths', () => {
+  it('keeps drive-less file URLs readable on every OS', async () => {
+    const { pathToFileURL } = await import('node:url');
+    const { mkdirSync } = await import('node:fs');
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'tycho-cur-'));
+    makeCursorUser(dir);
+    // A workspace.json written with this OS's own URL form must round-trip exactly.
+    const native = path.join(os.tmpdir(), 'tycho native app');
+    mkdirSync(path.join(dir, 'workspaceStorage', 'ws-native'), { recursive: true });
+    writeFileSync(path.join(dir, 'workspaceStorage', 'ws-native', 'workspace.json'), JSON.stringify({ folder: pathToFileURL(native).href }));
+    const h = new Database(path.join(dir, 'globalStorage', 'state.vscdb'));
+    h.prepare(`INSERT INTO cursorDiskKV VALUES ('composerData:c-native', ?)`).run(JSON.stringify({ composerId: 'c-native', createdAt: 1, lastUpdatedAt: 1, workspaceIdentifier: { id: 'ws-native' } }));
+    h.close();
+    const db = openDb(':memory:');
+    new Ingestor(db, at(dir)).backfill();
+    expect(get(db, `SELECT project_path p FROM sessions WHERE id='cursor:c-native'`)).toEqual({ p: native });
+  });
+});

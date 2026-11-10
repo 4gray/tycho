@@ -24,12 +24,28 @@ function workspacePath(root: string, id: string | undefined): string | undefined
   try {
     const w = JSON.parse(readFileSync(path.join(root, 'workspaceStorage', id, 'workspace.json'), 'utf8')) as { folder?: string; workspace?: string };
     const uri = w.folder ?? w.workspace;
-    p = uri?.startsWith('file:') ? fileURLToPath(uri) : undefined;
+    p = uri?.startsWith('file:') ? fileUrlToPath(uri) : undefined;
   } catch {
     p = undefined;
   }
   workspaceCache.set(id, p);
   return p;
+}
+
+/**
+ * `fileURLToPath` throws on Windows for drive-less URLs (`file:///Users/x`, e.g. a workspace
+ * recorded on another machine). Fall back to the URL's decoded path rather than losing it.
+ */
+function fileUrlToPath(uri: string): string | undefined {
+  try {
+    return fileURLToPath(uri);
+  } catch {
+    try {
+      return decodeURIComponent(new URL(uri).pathname) || undefined;
+    } catch {
+      return undefined;
+    }
+  }
 }
 
 /** Cursor tool names carry version suffixes and MCP prefixes: `read_file_v2`, `mcp-server-tool`. */
