@@ -16,5 +16,6 @@ const SessionsQuery = z
 export function registerIpc(db: BetterSqlite3.Database): void {
   ipcMain.handle(IPC.overview, () => queries.overview(db));
   ipcMain.handle(IPC.sessions, (_e, q: unknown) => queries.sessions(db, SessionsQuery.parse(q)));
+  ipcMain.handle(IPC.session, (_e, id: unknown) => queries.session(db, z.string().max(512).parse(id)));
   ipcMain.handle(IPC.sources, () => queries.sources(db));
 }
