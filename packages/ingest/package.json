@@ -1,0 +1,17 @@
+{
+  "name": "@tycho/ingest",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@tycho/adapters": "*",
+    "@tycho/core": "*",
+    "@tycho/db": "*",
+    "chokidar": "^6.0.0"
+  }
+}
