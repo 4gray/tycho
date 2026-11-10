@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { OverviewData } from '@tycho/core';
 import { useTycho } from './useQuery';
 import { SessionList } from './SessionList';
-import { HARNESS, harness, usd } from './format';
+import { HARNESS, harness, tokens, usd } from './format';
 
 function DailyChart({ daily }: { daily: OverviewData['daily'] }) {
   const days = Array.from({ length: 14 }, (_, i) => {
@@ -44,6 +44,7 @@ export function Overview({ onOpen }: { onOpen: (id: string) => void }) {
       <div>
         <h2>Running</h2>
         <SessionList rows={running} onOpen={onOpen} empty="No agent is running right now." />
+        <HarnessCompare />
         <h2>Earlier today</h2>
         <SessionList
           rows={today}
@@ -75,6 +76,36 @@ export function Overview({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function HarnessCompare() {
+  const { data: rows = [] } = useTycho(() => window.tycho.harnesses({ days: 30 }));
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <h2>By harness, 30 days</h2>
+      <table className="compare">
+        <thead>
+          <tr><th>Harness</th><th className="n">Cost</th><th className="n">Sessions</th><th className="n">Per session</th><th className="n">Tokens</th><th className="n">Cache reads</th><th className="n">Tool errors</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.harness}>
+              <td><span className="chip" style={{ ['--c' as string]: harness(r.harness).color }}>{harness(r.harness).label}</span></td>
+              <td className="n">{usd(r.costUsd)}</td>
+              <td className="n">{r.sessions}</td>
+              <td className="n">{usd(r.costPerSession)}</td>
+              <td className="n">{tokens(r.tokens)}</td>
+              <td className="n">{r.cacheReadShare == null ? '—' : `${Math.round(r.cacheReadShare * 100)}%`}</td>
+              <td className={`n${r.toolCalls && r.toolErrors / r.toolCalls >= 0.1 ? ' err' : ''}`}>
+                {r.toolCalls ? `${((r.toolErrors / r.toolCalls) * 100).toFixed(1)}%` : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -120,16 +151,6 @@ export function Sources() {
           </tbody>
         </table>
       )}
-    </>
-  );
-}
-
-export function Later({ title, what, milestone }: { title: string; what: string; milestone: string }) {
-  return (
-    <>
-      <h1>{title}</h1>
-      <p className="sub">{what}</p>
-      <div className="empty">Arrives in {milestone}.</div>
     </>
   );
 }
