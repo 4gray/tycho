@@ -44,7 +44,7 @@ Adapter health: each source carries `ok | degraded | failing`, with last error a
 |---|---|---|---|
 | M1 | claude-code | jsonl, append | sidechains → `parentSessionId`; skip summary/compaction lines as user messages |
 | M2 | opencode | sqlite-table (v2 + v1 tables) and json-tree (oldest `storage/`) | built from OpenCode's source (not installed on the dev machine); `cost` > 0 → `reported`, `cost` = 0 → computed API-equivalent; v1/v2 copies share ids and collapse |
-| M4 | cursor | sqlite-kv, mtime poll ≥5s | `composerData:*` and `bubbleId:*`; estimated cost; fail soft |
+| M4 | cursor | sqlite-table over `cursorDiskKV` key ranges, 5s debounce | verified on a real 6.5 GB store: 1,118 chats, 34k messages, 64k tool calls; first backfill ~40 s, incremental 150–500 ms. Fields are pulled with `json_extract` so 2.1 GB of bubble blobs never reach JS. Tokens are almost never recorded (21 of 40k bubbles), so Cursor cost appears only from bubble tokens or Cursor's own `usageData`, always `estimated`; chats with neither show “—”, not $0. |
 
 Per adapter: inspect real files first, copy anonymized samples into `packages/adapters/<h>/fixtures/`, write the vitest expectations, then write `spec.ts` (+ `transform.ts`).
 
@@ -69,6 +69,10 @@ Routes are a simple state machine, no router needed: Rack (overview), Sessions, 
 - Secret redaction is on by default (`packages/core/src/redact.ts`): known token formats, `KEY=value` assignments, URL passwords and private keys are masked before text is stored or indexed. A one-time pass (`REDACTION_VERSION`) re-scans rows stored earlier.
 - Search quotes every word as an FTS5 prefix term, so user input can never be FTS syntax. Snippet markers are rendered as `<mark>` elements, never as HTML.
 - Tray: a template icon plus today's cost as the title. The menu lists running sessions, and clicking one opens it in the window.
+
+## Known limits after M4
+- The first Cursor backfill blocks the worker for ~40 s (peak ~500 MB RSS), so Claude Code live updates pause during that one-time pass. Yielding between batches would fix it.
+- The session list query takes ~170 ms with 1.1k sessions. Precomputed per-session rollups are the next step if it grows.
 
 ## Testing
 - Unit: every adapter against its fixtures; readers against partial lines, truncation, and duplicates; cost math.
