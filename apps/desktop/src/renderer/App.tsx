@@ -6,6 +6,7 @@ import { Transcript } from './Transcript';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Tools } from './Tools';
 import { Search } from './Search';
+import { Mark } from './Mark';
 
 const VIEWS = ['Overview', 'Sessions', 'Tools', 'Search', 'Sources'] as const;
 type View = (typeof VIEWS)[number];
@@ -25,7 +26,7 @@ export function App() {
   return (
     <div className="app">
       <header className="titlebar">
-        <div className="brand">Tycho</div>
+        <div className="brand"><Mark />Tycho</div>
         <div className="readout" aria-label="API-equivalent cost">
           <div><b>{usd(ov?.costToday ?? 0)}</b><span>Today</span></div>
           <div><b>{usd(ov?.cost7d ?? 0)}</b><span>7 days</span></div>
