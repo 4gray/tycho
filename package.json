@@ -10,13 +10,16 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "prices": "node scripts/update-prices.mjs",
-    "ingest:check": "npx tsx scripts/ingest-check.ts"
+    "ingest:check": "npx tsx scripts/ingest-check.ts",
+    "package": "npm run package -w @tycho/desktop",
+    "make": "npm run make -w @tycho/desktop"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
     "vitest": "^4.0.0"
   },
   "allowScripts": {
-    "better-sqlite3@13.0.3": true
+    "better-sqlite3@13.0.3": true,
+    "electron-winstaller@5.4.4": true
   }
 }
