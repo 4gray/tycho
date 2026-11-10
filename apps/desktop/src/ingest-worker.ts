@@ -15,21 +15,35 @@ const db = openDb(dbPath);
 const redacted = redactExisting(db);
 if (redacted) post({ type: 'changed', topic: 'sessions' });
 
-for (const spec of ADAPTERS) {
-  const ing = new Ingestor(db, spec);
+const ingestors = ADAPTERS.map((spec) => new Ingestor(db, spec));
+
+// Watch everything first, so live sessions keep updating while a large history loads.
+for (const ing of ingestors) {
   try {
-    let last = 0;
-    ing.backfill((p) => {
-      const now = Date.now();
-      if (now - last > 200 || p.done === p.total) {
-        last = now;
-        post({ type: 'progress', ...p });
-        post({ type: 'changed', topic: 'sessions' });
-      }
-    });
     watchSources(ing, () => post({ type: 'changed', topic: 'usage' }));
   } catch (e) {
-    post({ type: 'error', harness: spec.harness, message: (e as Error).message });
+    post({ type: 'error', harness: ing.spec.harness, message: (e as Error).message });
   }
 }
-post({ type: 'ready' });
+
+void (async () => {
+  // Batches commit as they go; refresh the UI every couple of seconds during the first load.
+  const pulse = setInterval(() => post({ type: 'changed', topic: 'sessions' }), 2000);
+  for (const ing of ingestors) {
+    try {
+      let last = 0;
+      await ing.backfillAsync((p) => {
+        const now = Date.now();
+        if (now - last > 200 || p.done === p.total) {
+          last = now;
+          post({ type: 'progress', ...p });
+        }
+      });
+    } catch (e) {
+      post({ type: 'error', harness: ing.spec.harness, message: (e as Error).message });
+    }
+  }
+  clearInterval(pulse);
+  post({ type: 'changed', topic: 'sessions' });
+  post({ type: 'ready' });
+})();
