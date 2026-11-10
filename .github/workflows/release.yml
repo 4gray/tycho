@@ -1,0 +1,107 @@
+name: Release
+
+# Push a tag like v0.1.0 (matching apps/desktop/package.json) to build installers for
+# macOS, Windows and Linux and attach them to a draft GitHub Release for review.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS arm64, os: macos-latest, arch: arm64 }
+          - { name: macOS x64, os: macos-latest, arch: x64 }
+          - { name: Windows x64, os: windows-latest, arch: x64 }
+          - { name: Linux x64, os: ubuntu-latest, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check tag matches app version
+        shell: bash
+        run: |
+          version=$(node -p "require('./apps/desktop/package.json').version")
+          if [ "v$version" != "$TAG" ]; then
+            echo "Tag $TAG does not match apps/desktop/package.json version $version"; exit 1
+          fi
+
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot dpkg
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Make installers
+        run: npm run make -w @tycho/desktop -- --arch=${{ matrix.arch }}
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p dist
+          find apps/desktop/out/make -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.nupkg' -o -name 'RELEASES' -o -name '*.deb' -o -name '*.rpm' \) -exec cp {} dist/ \;
+          # Squirrel's RELEASES file has the same name on every build; keep it per-arch.
+          [ -f dist/RELEASES ] && mv dist/RELEASES "dist/RELEASES-${{ matrix.arch }}" || true
+          ls -la dist
+          test -n "$(ls dist)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tycho-${{ runner.os }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Draft GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$TAG" in v0.*|*-*) prerelease="--prerelease" ;; esac
+          gh release create "$TAG" dist/* --repo "${{ github.repository }}" --draft $prerelease \
+            --title "Tycho $TAG" \
+            --notes "Unsigned builds. macOS: right-click Tycho.app → Open on first launch. Windows: SmartScreen → More info → Run anyway. Verify downloads against SHA256SUMS.txt."
