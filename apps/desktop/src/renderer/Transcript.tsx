@@ -1,7 +1,7 @@
 import type { SessionDetail } from '@tycho/core';
 import { useTycho } from './useQuery';
 import { Tape } from './Tape';
-import { STAMP, harness, span, tokens, usd } from './format';
+import { APPROXIMATE, STAMP, costLabel, harness, span, tokens } from './format';
 
 const time = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
@@ -21,12 +21,13 @@ export function Transcript({ id, onBack }: { id: string; onBack: () => void }) {
         <span className="chip" style={{ ['--c' as string]: h.color }}>{h.label}</span> · {s.projectPath ?? 'no project'} · {span(s.startedAt, s.updatedAt)}
       </p>
       <dl className="facts">
-        <div><dt>Cost</dt><dd>{usd(s.costUsd)}{s.unpriced ? '+' : ''} {stamp && <span className={`stamp ${stamp.code}`} title={stamp.title}>{stamp.code}</span>}</dd></div>
+        <div><dt>Cost</dt><dd title={costLabel(s).title}>{costLabel(s).text} {stamp && <span className={`stamp ${stamp.code}`} title={stamp.title}>{stamp.code}</span>}</dd></div>
         <div><dt>Tokens</dt><dd>{tokens(s.totalTokens)}</dd></div>
         <div><dt>Tool calls</dt><dd>{s.toolCalls}{s.toolErrors > 0 && <span className="err"> · {s.toolErrors} failed</span>}</dd></div>
         <div><dt>Model</dt><dd>{s.model ?? '—'}</dd></div>
         <div><dt>Subagents</dt><dd>{s.subagents}</dd></div>
       </dl>
+      {APPROXIMATE[s.harness] && <p className="note">{APPROXIMATE[s.harness]}</p>}
       <h2>Timeline</h2>
       <div className="tape on panel"><Tape d={d} /></div>
       <h2>Transcript</h2>

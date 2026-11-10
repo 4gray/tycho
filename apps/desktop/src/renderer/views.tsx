@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { OverviewData } from '@tycho/core';
 import { useTycho } from './useQuery';
 import { SessionList } from './SessionList';
-import { HARNESS, harness, tokens, usd } from './format';
+import { APPROXIMATE, HARNESS, harness, tokens, usd } from './format';
 
 function DailyChart({ daily }: { daily: OverviewData['daily'] }) {
   const days = Array.from({ length: 14 }, (_, i) => {
@@ -93,9 +93,9 @@ function HarnessCompare() {
           {rows.map((r) => (
             <tr key={r.harness}>
               <td><span className="chip" style={{ ['--c' as string]: harness(r.harness).color }}>{harness(r.harness).label}</span></td>
-              <td className="n">{usd(r.costUsd)}</td>
+              <td className="n" title={APPROXIMATE[r.harness]}>{APPROXIMATE[r.harness] ? '~' : ''}{usd(r.costUsd)}{APPROXIMATE[r.harness] && <span className="approx">approx.</span>}</td>
               <td className="n">{r.sessions}</td>
-              <td className="n">{usd(r.costPerSession)}</td>
+              <td className="n">{APPROXIMATE[r.harness] ? '~' : ''}{usd(r.costPerSession)}</td>
               <td className="n">{tokens(r.tokens)}</td>
               <td className="n">{r.cacheReadShare == null ? '—' : `${Math.round(r.cacheReadShare * 100)}%`}</td>
               <td className={`n${r.toolCalls && r.toolErrors / r.toolCalls >= 0.1 ? ' err' : ''}`}>
@@ -142,7 +142,10 @@ export function Sources() {
             {rows.map((r) => (
               <tr key={r.sourceRef}>
                 <td><span className="chip" style={{ ['--c' as string]: harness(r.harness).color }}>{harness(r.harness).label}</span></td>
-                <td><code>{r.sourceRef}</code></td>
+                <td>
+                  <code>{r.sourceRef}</code>
+                  {APPROXIMATE[r.harness] && <div className="small">{APPROXIMATE[r.harness]}</div>}
+                </td>
                 <td><span className={`health${r.health === 'ok' ? '' : ' warn'}`}><i />{r.health === 'ok' ? 'Healthy' : r.lastError ?? r.health}</span></td>
                 <td>{r.lastIngestAt ? new Date(r.lastIngestAt).toLocaleString() : '—'}</td>
                 <td className="n">{r.records.toLocaleString()}</td>

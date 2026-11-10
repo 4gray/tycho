@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SessionDetail, SessionRow } from '@tycho/core';
 import { Tape } from './Tape';
-import { STAMP, harness, span, tokens, usd } from './format';
+import { STAMP, costLabel, harness, span, tokens } from './format';
 
 function Strip({ s, onOpen }: { s: SessionRow; onOpen: (id: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -45,10 +45,7 @@ function Strip({ s, onOpen }: { s: SessionRow; onOpen: (id: string) => void }) {
           </div>
         </div>
         <div className="cost">
-          <div className="fig" title={s.unpriced ? 'Some usage is from a model with no known price; this is a lower bound.' : undefined}>
-            {s.costSource === 'estimated' ? '~' : ''}
-            {s.unpriced && s.costUsd === 0 ? 'unpriced' : `${usd(s.costUsd)}${s.unpriced ? '+' : ''}`}
-          </div>
+          <div className="fig" title={costLabel(s).title}>{costLabel(s).text}</div>
           {stamp && <span className={`stamp ${stamp.code}`} title={stamp.title}>{stamp.code}</span>}
         </div>
       </button>
