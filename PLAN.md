@@ -71,7 +71,7 @@ Routes are a simple state machine, no router needed: Rack (overview), Sessions, 
 - Tray: a template icon plus today's cost as the title. The menu lists running sessions, and clicking one opens it in the window.
 
 ## Known limits after M4
-- The first Cursor backfill blocks the worker for ~40 s (peak ~500 MB RSS), so Claude Code live updates pause during that one-time pass. Yielding between batches would fix it.
+- Fixed: the first Cursor backfill used to block the worker for ~40 s. It now yields after every 500-row batch: the longest event-loop stall is ~280 ms (p95 ~190 ms), peak RSS is ~190 MB, total time is unchanged (~39 s). Watchers start before any backfill, and concurrent reads of one source are coalesced.
 - The session list query takes ~170 ms with 1.1k sessions. Precomputed per-session rollups are the next step if it grows.
 
 ## Testing
