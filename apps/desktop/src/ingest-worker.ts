@@ -4,7 +4,7 @@
  */
 import { ADAPTERS } from '@tycho/adapters';
 import { openDb } from '@tycho/db';
-import { Ingestor, watchSources } from '@tycho/ingest';
+import { Ingestor, redactExisting, watchSources } from '@tycho/ingest';
 import type { WorkerEvent } from './worker-protocol';
 
 const dbPath = process.argv[2];
@@ -12,6 +12,8 @@ if (!dbPath) throw new Error('ingest-worker: missing db path');
 
 const post = (e: WorkerEvent) => process.parentPort.postMessage(e);
 const db = openDb(dbPath);
+const redacted = redactExisting(db);
+if (redacted) post({ type: 'changed', topic: 'sessions' });
 
 for (const spec of ADAPTERS) {
   const ing = new Ingestor(db, spec);

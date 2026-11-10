@@ -4,7 +4,7 @@ import { openDb, queries } from './index';
 describe('db', () => {
   it('migrates idempotently and answers empty queries', () => {
     const db = openDb(':memory:');
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
     expect(queries.overview(db).cost30d).toBe(0);
     expect(queries.sessions(db, {})).toEqual([]);
   });
