@@ -45,6 +45,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // A packaged app takes its Dock icon from the bundle; `npm start` runs inside Electron's bundle,
+  // so set it explicitly there or the Dock shows Electron's logo.
+  if (!app.isPackaged && process.platform === 'darwin') app.dock?.setIcon(path.join(__dirname, '../../assets/icon.png'));
+
   const dbPath = path.join(app.getPath('userData'), 'tycho.db');
   // Main migrates first, then only reads; the ingest worker is the single writer.
   const db = openDb(dbPath);
