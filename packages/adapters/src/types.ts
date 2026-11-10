@@ -22,8 +22,19 @@ export interface AdapterSpec {
     /** File-name test applied while walking each root. */
     match: (relPath: string) => boolean;
   };
-  reader: 'jsonl' | 'json-tree' | 'sqlite-kv' | 'sqlite-table';
+  reader: 'jsonl' | 'json-tree' | 'sqlite-table';
+  /**
+   * For `sqlite-table`: tables to read incrementally. Each query receives `@cursor` (the highest
+   * cursor value seen so far, initially 0) and must return a `cursor` column. Rows are re-read when
+   * their cursor ties, so transforms must be idempotent. Queries whose tables are missing are skipped.
+   */
+  sqlite?: { tables: { name: string; requires: string[]; sql: string }[] };
   watch: { mode: 'append' | 'mtime'; debounceMs: number };
-  /** Called once per file before its records, for per-file context (e.g. session id from the path). */
+  /**
+   * Map one raw record to normalized records.
+   * - jsonl: one parsed line
+   * - json-tree: the parsed file
+   * - sqlite-table: `{ table, row }` where `table` is the configured name
+   */
   transform: (raw: unknown, ctx: SourceCtx) => NormalizedRecord[];
 }

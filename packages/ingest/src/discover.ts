@@ -12,7 +12,10 @@ export function rootsFor(spec: AdapterSpec, env: NodeJS.ProcessEnv = process.env
   const fromEnv = spec.discover.env && env[spec.discover.env.name];
   const list = fromEnv
     ? fromEnv.split(',').map((d) => path.join(expand(d.trim(), env), spec.discover.env!.suffix))
-    : (spec.discover.roots[platform] ?? spec.discover.roots.default ?? []).map((r) => expand(r, env));
+    : (spec.discover.roots[platform] ?? spec.discover.roots.default ?? [])
+        // A root that names an unset variable does not apply on this machine.
+        .filter((r) => [...r.matchAll(/\$(\w+)/g)].every(([, k]) => env[k!]))
+        .map((r) => expand(r, env));
   return [...new Set(list)].filter((r) => existsSync(r) && statSync(r).isDirectory());
 }
 

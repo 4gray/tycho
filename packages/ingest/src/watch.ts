@@ -10,7 +10,9 @@ export function watchSources(ing: Ingestor, onIngested: (file: string, records: 
   const roots = ing.roots();
   const timers = new Map<string, NodeJS.Timeout>();
   const rootOf = (f: string) => roots.find((r) => f.startsWith(r + path.sep));
-  const schedule = (file: string) => {
+  const schedule = (changed: string) => {
+    // SQLite sources change through their -wal / -shm siblings.
+    const file = changed.replace(/-(wal|shm|journal)$/, '');
     const root = rootOf(file);
     if (!root || !ing.spec.discover.match(path.relative(root, file))) return;
     clearTimeout(timers.get(file));
