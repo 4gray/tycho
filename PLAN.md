@@ -65,6 +65,11 @@ Routes are a simple state machine, no router needed: Rack (overview), Sessions, 
 5. **M4 Cursor**: read-only, degraded-health UI, estimated badge.
 6. **M5 (optional) precise-mode proxy.**
 
+## M3 notes (as built)
+- Secret redaction is on by default (`packages/core/src/redact.ts`): known token formats, `KEY=value` assignments, URL passwords and private keys are masked before text is stored or indexed. A one-time pass (`REDACTION_VERSION`) re-scans rows stored earlier.
+- Search quotes every word as an FTS5 prefix term, so user input can never be FTS syntax. Snippet markers are rendered as `<mark>` elements, never as HTML.
+- Tray: a template icon plus today's cost as the title. The menu lists running sessions, and clicking one opens it in the window.
+
 ## Testing
 - Unit: every adapter against its fixtures; readers against partial lines, truncation, and duplicates; cost math.
 - Integration: ingest a fixture tree twice and assert identical row counts (idempotency).
@@ -72,5 +77,4 @@ Routes are a simple state machine, no router needed: Rack (overview), Sessions, 
 
 ## Still open
 - Which harness after Cursor (Codex CLI is the likely cheapest; it writes JSONL).
-- Secret redaction before FTS: on by default? Recommended yes.
 - DESIGN.md is written from the real React build at the end of M1, not from the prototype.
