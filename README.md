@@ -1,3 +1,5 @@
+<p align="center"><img src="design/logo/tycho-icon-1024.png" width="128" height="128" alt="Tycho icon: a brass mural quadrant sighting a star"></p>
+
 # Tycho
 
 **One local view of every AI coding agent on your machine.**
