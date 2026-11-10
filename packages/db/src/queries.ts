@@ -47,7 +47,10 @@ const FAM = '(SELECT id FROM sessions WHERE id = s.id OR parent_session_id = s.i
 const SESSION_SELECT = `
   SELECT s.id, s.harness, COALESCE(s.title, '(untitled)') title, s.project_path projectPath,
     s.started_at startedAt, s.updated_at updatedAt,
-    (SELECT model FROM usage_events WHERE session_id = s.id GROUP BY model ORDER BY SUM(output_tokens) DESC LIMIT 1) model,
+    COALESCE(
+      (SELECT model FROM usage_events WHERE session_id = s.id GROUP BY model ORDER BY SUM(output_tokens) DESC LIMIT 1),
+      (SELECT model FROM messages WHERE session_id = s.id AND model IS NOT NULL GROUP BY model ORDER BY COUNT(*) DESC LIMIT 1)
+    ) model,
     COALESCE((SELECT SUM(input_tokens+output_tokens+cache_read_tokens+cache_write_tokens) FROM usage_events WHERE session_id IN ${FAM}),0) totalTokens,
     (SELECT COUNT(*) FROM tool_calls WHERE session_id IN ${FAM}) toolCalls,
     (SELECT COUNT(*) FROM tool_calls WHERE session_id IN ${FAM} AND status = 'error') toolErrors,
